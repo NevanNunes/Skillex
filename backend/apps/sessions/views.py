@@ -143,4 +143,77 @@ class SessionActionView(APIView):
         except ValueError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+        # AI Session Planning & Summarization
+        if action == 'plan':
+            from apps.integrations.ai_service import generate_lesson_plan
+            from apps.skills.models import UserSkillTeach, UserSkillLearn
+            
+            # Find the teacher's skill profile
+            try:
+                teacher_skill = UserSkillTeach.objects.get(user=session.teacher, skill=session.match.teach_skill.skill)
+            except UserSkillTeach.DoesNotExist:
+                return Response({'detail': 'Teacher skill profile not found.'}, status=404)
+                
+            # Find the learner's skill profile
+            learner_level = "Beginner"
+            try:
+                learner_skill = UserSkillLearn.objects.get(user=session.learner, skill=session.match.teach_skill.skill)
+                learner_level = learner_skill.current_level
+            except UserSkillLearn.DoesNotExist:
+                pass
+                
+            plan_md = generate_lesson_plan(teacher_skill, learner_level, session.duration_minutes)
+            return Response({'plan': plan_md})
+            
+        elif action == 'summarize':
+            from apps.integrations.ai_service import summarize_session
+            notes = request.data.get('notes', '')
+            if not notes:
+                return Response({'detail': 'Please provide session notes to summarize.'}, status=400)
+                
+            summary_md = summarize_session(notes, session.teacher.username, session.learner.username)
+            return Response({'summary': summary_md})
+
         return Response(SessionSerializer(session).data)
+
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from .models import StudyCircle
+from .serializers import StudyCircleSerializer
+
+class StudyCircleViewSet(viewsets.ModelViewSet):
+    serializer_class = StudyCircleSerializer
+
+    def get_queryset(self):
+        return StudyCircle.objects.all().select_related('teacher', 'skill')
+
+    def perform_create(self, serializer):
+        serializer.save(teacher=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def join(self, request, pk=None):
+        circle = self.get_object()
+        if circle.status != 'open':
+            return Response({'detail': 'Circle is not open.'}, status=400)
+        if circle.participants.count() >= circle.max_participants:
+            circle.status = 'full'
+            circle.save(update_fields=['status'])
+            return Response({'detail': 'Circle is full.'}, status=400)
+        if request.user == circle.teacher:
+            return Response({'detail': 'Teacher cannot join their own circle as a learner.'}, status=400)
+            
+        circle.participants.add(request.user)
+        if circle.participants.count() >= circle.max_participants:
+            circle.status = 'full'
+            circle.save(update_fields=['status'])
+            
+        return Response(StudyCircleSerializer(circle).data)
+
+    @action(detail=True, methods=['post'])
+    def leave(self, request, pk=None):
+        circle = self.get_object()
+        circle.participants.remove(request.user)
+        if circle.status == 'full' and circle.participants.count() < circle.max_participants:
+            circle.status = 'open'
+            circle.save(update_fields=['status'])
+        return Response(StudyCircleSerializer(circle).data)

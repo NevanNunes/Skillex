@@ -41,3 +41,17 @@ class UserSkillLearn(models.Model):
 
     class Meta:
         unique_together = ('user', 'skill')
+
+class SkillEvidence(models.Model):
+    """
+    Evidence or portfolio items uploaded by a user to prove their skill.
+    Uses Cloudinary storage via Django's DEFAULT_FILE_STORAGE.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user_skill = models.ForeignKey(UserSkillTeach, on_delete=models.CASCADE, related_name='evidence')
+    title = models.CharField(max_length=100)
+    file = models.FileField(upload_to='evidence/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} for {self.user_skill.skill.name}"

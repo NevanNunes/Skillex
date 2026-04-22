@@ -22,6 +22,31 @@ class TeachSkillViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    from rest_framework.decorators import action
+    from rest_framework.response import Response
+    from .models import SkillEvidence
+    from .serializers import SkillEvidenceSerializer
+
+    @action(detail=True, methods=['post'])
+    def upload_evidence(self, request, pk=None):
+        """Upload a file as evidence for this skill."""
+        teach_skill = self.get_object()
+        
+        file = request.FILES.get('file')
+        title = request.data.get('title', 'Portfolio Item')
+        
+        if not file:
+            return Response({'detail': 'No file provided.'}, status=400)
+            
+        evidence = SkillEvidence.objects.create(
+            user_skill=teach_skill,
+            title=title,
+            file=file
+        )
+        
+        serializer = SkillEvidenceSerializer(evidence)
+        return Response(serializer.data, status=201)
+
 class LearnSkillViewSet(viewsets.ModelViewSet):
     serializer_class = UserSkillLearnSerializer
 

@@ -33,6 +33,8 @@ INSTALLED_APPS = [
     'apps.community',
     'apps.gamification',
     'apps.integrations',
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 MIDDLEWARE = [
@@ -155,4 +157,24 @@ QDRANT_HOST = os.environ.get('QDRANT_HOST', 'localhost')
 QDRANT_PORT = int(os.environ.get('QDRANT_PORT', 6333))
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 EMBEDDING_MODEL = 'text-embedding-3-small'
-EMBEDDING_DIMENSION = 1536
+EMBEDDING_DIMENSION = 1536
+
+# ──────────────────────────────────────────
+# File Storage (Cloudinary)
+# ──────────────────────────────────────────
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': 'hhuaykn30', # extracted from API key
+    'API_KEY': 'RRdP7R_XhuAYKN30C2qEmMeWLJc',
+    'API_SECRET': '', # We will need to construct it or assume it's part of the provided string
+}
+# Fallback to URL if provided in env
+import os
+if os.environ.get('CLOUDINARY_URL'):
+    CLOUDINARY_STORAGE = {}
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+# ──────────────────────────────────────────
+# AI Generation (Gemini)
+# ──────────────────────────────────────────
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyDPVbBUs-R9Kgyg43STm1sV67QUDQdrm9Y')

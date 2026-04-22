@@ -28,3 +28,18 @@ class SessionFeedbackSerializer(serializers.Serializer):
     """Used when submitting post-session feedback via the 'feedback' action."""
     rating = serializers.IntegerField(min_value=1, max_value=5)
     comment = serializers.CharField(required=False, allow_blank=True)
+
+from .models import StudyCircle
+
+class StudyCircleSerializer(serializers.ModelSerializer):
+    participants_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StudyCircle
+        fields = ['id', 'teacher', 'skill', 'title', 'description', 'scheduled_at',
+                  'duration_minutes', 'max_participants', 'status', 'meeting_url',
+                  'participants_count', 'created_at']
+        read_only_fields = ['id', 'teacher', 'status', 'meeting_url', 'created_at']
+
+    def get_participants_count(self, obj):
+        return obj.participants.count()
