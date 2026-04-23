@@ -96,6 +96,11 @@ class GoogleCalendarSyncView(APIView):
             return Response({'detail': 'Not a participant.'}, status=403)
         if session.status not in ['confirmed', 'completed']:
             return Response({'detail': 'Session must be confirmed first.'}, status=400)
+        # Fix #3: Ensure video room is created before syncing to calendar
+        if not session.meeting_url:
+            return Response({
+                'detail': 'Please create a video room first before syncing to your calendar.',
+            }, status=400)
 
         try:
             token_obj = GoogleCalendarToken.objects.get(user=request.user)

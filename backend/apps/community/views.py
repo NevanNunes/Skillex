@@ -3,6 +3,7 @@ from rest_framework import generics, status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from django.db.models import F
 
 from .models import Community, Post, Comment
 from .serializers import (
@@ -86,10 +87,10 @@ class CommunityPostListView(generics.ListAPIView):
         qs = Post.objects.filter(community=community)
         sort = self.request.query_params.get('sort', 'new')
         if sort == 'top':
-            qs = qs.order_by('-upvotes', '-created_at')
+            # Fix #2: Sort by net_votes (upvotes - downvotes) instead of just upvotes
+            qs = qs.annotate(net=F('upvotes') - F('downvotes')).order_by('-net', '-created_at')
         elif sort == 'hot':
-            # Simple hot = most comments + upvotes recently
-            qs = qs.order_by('-is_pinned', '-upvotes', '-created_at')
+            qs = qs.annotate(net=F('upvotes') - F('downvotes')).order_by('-is_pinned', '-net', '-created_at')
         else:  # new
             qs = qs.order_by('-is_pinned', '-created_at')
         return qs
@@ -128,12 +129,15 @@ class PostVoteView(APIView):
         post = get_object_or_404(Post, pk=pk)
         ser = VoteSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        action, _ = toggle_vote(
-            user=request.user,
-            target_type='post',
-            target_obj=post,
-            vote_type=ser.validated_data['vote_type'],
-        )
+        try:
+            action, _ = toggle_vote(
+                user=request.user,
+                target_type='post',
+                target_obj=post,
+                vote_type=ser.validated_data['vote_type'],
+            )
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         post.refresh_from_db()
         return Response({
             'action': action,
@@ -198,12 +202,15 @@ class CommentVoteView(APIView):
         comment = get_object_or_404(Comment, pk=comment_id)
         ser = VoteSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        action, _ = toggle_vote(
-            user=request.user,
-            target_type='comment',
-            target_obj=comment,
-            vote_type=ser.validated_data['vote_type'],
-        )
+        try:
+            action, _ = toggle_vote(
+                user=request.user,
+                target_type='comment',
+                target_obj=comment,
+                vote_type=ser.validated_data['vote_type'],
+            )
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         comment.refresh_from_db()
         return Response({
             'action': action,

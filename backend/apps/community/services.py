@@ -120,6 +120,10 @@ def toggle_vote(user, target_type, target_obj, vote_type):
     - Otherwise, create a new vote.
     Returns (action, vote_or_none) where action is 'created', 'switched', or 'removed'.
     """
+    # Fix #4: Prevent self-voting
+    if user == target_obj.author:
+        raise ValueError('You cannot vote on your own content.')
+
     lookup = {'user': user, 'target_type': target_type}
     if target_type == 'post':
         lookup['post'] = target_obj
@@ -174,5 +178,15 @@ def _update_vote_counts(target_obj, vote_type, delta):
                 award_xp(target_obj.author, 'post_upvoted')
             else:
                 award_xp(target_obj.author, 'comment_upvoted')
+        except ImportError:
+            pass
+    # Fix #1: Deduct XP when upvote is removed
+    elif vote_type == 'upvote' and delta < 0:
+        try:
+            from apps.gamification.services import deduct_xp
+            if isinstance(target_obj, Post):
+                deduct_xp(target_obj.author, 'post_upvoted')
+            else:
+                deduct_xp(target_obj.author, 'comment_upvoted')
         except ImportError:
             pass
