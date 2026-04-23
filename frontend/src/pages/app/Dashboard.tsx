@@ -24,7 +24,7 @@ export default function Dashboard() {
 
   const upcoming = (sessions.data?.results ?? [])
     .filter((s) => s.status === "confirmed" || s.status === "pending")
-    .sort((a, b) => a.start.localeCompare(b.start))
+    .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))
     .slice(0, 3);
 
   const pendingMatches = (matches.data?.results ?? []).filter((m) => m.status === "pending").slice(0, 4);
@@ -41,11 +41,11 @@ export default function Dashboard() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <GlassCard className="flex items-center gap-4">
-          <ScoreRing value={(game.data?.xp ?? 0) / (game.data?.next_level_xp ?? 1)} size={68} label={`L${game.data?.level ?? "—"}`} />
+          <ScoreRing value={(game.data?.xp ?? 0) / 500} size={68} label={`L${game.data?.teacher_level ?? "—"}`} />
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Level</p>
             <p className="font-display text-xl font-bold">{game.data?.xp ?? 0} XP</p>
-            <p className="text-xs text-muted-foreground">Next: {game.data?.next_level_xp ?? "—"} XP</p>
+            <p className="text-xs text-muted-foreground">Teacher Lv {game.data?.teacher_level ?? "—"}</p>
           </div>
         </GlassCard>
         <GlassCard className="flex items-center gap-4">
@@ -54,8 +54,8 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Reputation</p>
-            <p className="font-display text-xl font-bold">{(game.data?.reputation ?? 0).toFixed(2)} ★</p>
-            <p className="text-xs text-muted-foreground">{game.data?.badges.length ?? 0} badges</p>
+            <p className="font-display text-xl font-bold">{(user?.reputation_score ?? 0).toFixed(2)} ★</p>
+            <p className="text-xs text-muted-foreground">{game.data?.badges?.length ?? 0} badges</p>
           </div>
         </GlassCard>
         <GlassCard className="flex items-center gap-4">
@@ -82,21 +82,17 @@ export default function Dashboard() {
             <EmptyState title="No upcoming sessions" description="Book one from your matches." />
           ) : (
             <ul className="space-y-2">
-              {upcoming.map((s) => {
-                const other = s.teacher.id === user?.id ? s.learner : s.teacher;
-                return (
-                  <li key={s.id}>
-                    <Link to={`/app/sessions/${s.id}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/60 transition-colors">
-                      <UserAvatar user={other} size="md" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{s.skill.name} with {other.full_name ?? other.username}</p>
-                        <p className="text-xs text-muted-foreground">{dayjs(s.start).format("ddd, MMM D · h:mm A")}</p>
-                      </div>
-                      <Badge variant={s.status === "confirmed" ? "default" : "secondary"}>{s.status}</Badge>
-                    </Link>
-                  </li>
-                );
-              })}
+              {upcoming.map((s) => (
+                <li key={s.id}>
+                  <Link to={`/app/sessions/${s.id}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/60 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate">Session on {dayjs(s.scheduled_at).format("ddd, MMM D")}</p>
+                      <p className="text-xs text-muted-foreground">{dayjs(s.scheduled_at).format("ddd, MMM D · h:mm A")} · {s.duration_minutes} min</p>
+                    </div>
+                    <Badge variant={s.status === "confirmed" ? "default" : "secondary"}>{s.status}</Badge>
+                  </Link>
+                </li>
+              ))}
             </ul>
           )}
         </GlassCard>
@@ -108,7 +104,7 @@ export default function Dashboard() {
           </div>
           {(notifs.data?.results ?? []).slice(0, 4).map((n) => (
             <div key={n.id} className="text-sm">
-              <p className={n.read ? "text-muted-foreground" : "font-semibold"}>{n.title}</p>
+              <p className={n.is_read ? "text-muted-foreground" : "font-semibold"}>{n.title}</p>
               <p className="text-xs text-muted-foreground">{dayjs(n.created_at).fromNow()}</p>
             </div>
           ))}
@@ -129,10 +125,10 @@ export default function Dashboard() {
           <div className="grid sm:grid-cols-2 gap-3">
             {pendingMatches.map((m) => (
               <div key={m.id} className="glass-subtle p-4 flex items-center gap-3">
-                <UserAvatar user={m.user} size="md" />
+                <UserAvatar user={m.teacher} size="md" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold truncate">{m.user.full_name ?? m.user.username}</p>
-                  <p className="text-xs text-muted-foreground truncate">{m.shared_skills.join(" · ")}</p>
+                  <p className="font-semibold truncate">{m.teacher.username}</p>
+                  <p className="text-xs text-muted-foreground truncate">{m.teach_skill.skill.name}</p>
                 </div>
                 <ScoreRing value={m.score} size={44} />
               </div>

@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { matchingService } from "@/services/matching";
 import { sessionsService } from "@/services/sessions";
 import { usersService } from "@/services/users";
-import { skillsService } from "@/services/skills";
 import { GlassCard } from "@/components/common/GlassCard";
 import { PageHeader } from "@/components/common/PageHeader";
 import { UserAvatar } from "@/components/common/UserAvatar";
@@ -61,7 +60,8 @@ function SemanticMatches() {
     queryKey: ["matches", "semantic", threshold],
     queryFn: () => matchingService.semantic(threshold),
   });
-  const fellBack = (data?.results ?? []).length === 0;
+  const matches = data?.matches ?? [];
+  const method = data?.method;
   return (
     <div className="space-y-4">
       <GlassCard className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -70,9 +70,9 @@ function SemanticMatches() {
           <p className="font-semibold">Similarity threshold: {threshold.toFixed(2)}</p>
           <Slider value={[threshold]} onValueChange={([v]) => setThreshold(v)} min={0.5} max={0.95} step={0.05} className="mt-2" />
         </div>
-        {fellBack && <Badge variant="secondary" className="bg-warning/15 text-warning">Fallback: lower threshold</Badge>}
+        {method === "rule_based" && <Badge variant="secondary" className="bg-warning/15 text-warning">Fallback: rule-based</Badge>}
       </GlassCard>
-      <MatchGrid matches={data?.results ?? []} loading={isLoading} />
+      <MatchGrid matches={matches} loading={isLoading} />
     </div>
   );
 }
@@ -100,15 +100,16 @@ function MatchCard({ match }: { match: Match }) {
   return (
     <GlassCard className="space-y-4 hover:shadow-elevated transition-shadow">
       <div className="flex items-center gap-3">
-        <UserAvatar user={match.user} size="lg" />
+        <UserAvatar user={match.teacher} size="lg" />
         <div className="flex-1 min-w-0">
-          <p className="font-display font-semibold truncate">{match.user.full_name ?? match.user.username}</p>
-          <p className="text-xs text-muted-foreground truncate">{match.user.university}</p>
+          <p className="font-display font-semibold truncate">{match.teacher.username}</p>
+          <p className="text-xs text-muted-foreground truncate">{match.teacher.college}</p>
         </div>
         <ScoreRing value={match.score} size={52} />
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {match.shared_skills.map((s) => <Badge key={s} variant="secondary">{s}</Badge>)}
+        <Badge variant="secondary">{match.teach_skill.skill.name}</Badge>
+        <Badge variant="outline">{match.teach_skill.proficiency_level}</Badge>
       </div>
       <div className="flex items-center gap-2">
         <MentorPreviewSheet match={match}>
@@ -138,15 +139,15 @@ function MentorPreviewSheet({ match, children }: { match: Match; children: React
         </SheetHeader>
         <div className="space-y-4 mt-4">
           <div className="flex items-center gap-3">
-            <UserAvatar user={match.user} size="lg" />
+            <UserAvatar user={match.teacher} size="lg" />
             <div>
-              <p className="font-display font-semibold">{match.user.full_name ?? match.user.username}</p>
-              <p className="text-xs text-muted-foreground">{match.user.university}</p>
+              <p className="font-display font-semibold">{match.teacher.username}</p>
+              <p className="text-xs text-muted-foreground">{match.teacher.college}</p>
             </div>
           </div>
-          <p className="text-sm">{match.user.bio}</p>
+          <p className="text-sm">{match.teacher.bio}</p>
           <div className="flex flex-wrap gap-1.5">
-            {match.shared_skills.map((s) => <Badge key={s} variant="secondary">{s}</Badge>)}
+            <Badge variant="secondary">{match.teach_skill.skill.name}</Badge>
           </div>
           <BookSessionForm match={match} onDone={() => setOpen(false)} />
         </div>
@@ -158,20 +159,18 @@ function MentorPreviewSheet({ match, children }: { match: Match; children: React
 function BookSessionForm({ match, onDone }: { match: Match; onDone: () => void }) {
   const qc = useQueryClient();
   const { data: overlap } = useQuery({
-    queryKey: ["overlap", match.user.id],
-    queryFn: () => usersService.overlap(match.user.id),
+    queryKey: ["overlap", match.teacher.id],
+    queryFn: () => usersService.overlap(match.teacher.id),
   });
-  const { data: skills } = useQuery({ queryKey: ["skills", "all"], queryFn: () => skillsService.search() });
+  const windows = overlap?.windows ?? [];
   const [windowIdx, setWindowIdx] = useState("0");
   const [duration, setDuration] = useState("60");
-  const [skillId, setSkillId] = useState("");
 
   const book = useMutation({
     mutationFn: () => {
-      const w = (overlap ?? [])[Number(windowIdx)];
-      const start = dayjs(w.start).toISOString();
-      const end = dayjs(start).add(Number(duration), "minute").toISOString();
-      return sessionsService.book({ teacher_id: match.user.id, skill_id: Number(skillId), start, end });
+      const w = windows[Number(windowIdx)];
+      const scheduled_at = dayjs(`${w.date}T${w.start}`).toISOString();
+      return sessionsService.book({ match_id: match.id, scheduled_at, duration_minutes: Number(duration) });
     },
     onSuccess: () => {
       toast.success("Session booked");
@@ -184,19 +183,12 @@ function BookSessionForm({ match, onDone }: { match: Match; onDone: () => void }
     <div className="glass-subtle p-4 space-y-3">
       <p className="font-semibold text-sm">Book a session</p>
       <div>
-        <p className="text-xs text-muted-foreground mb-1">Skill</p>
-        <Select value={skillId} onValueChange={setSkillId}>
-          <SelectTrigger><SelectValue placeholder="Pick a skill" /></SelectTrigger>
-          <SelectContent>{(skills ?? []).map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent>
-        </Select>
-      </div>
-      <div>
         <p className="text-xs text-muted-foreground mb-1">When</p>
         <Select value={windowIdx} onValueChange={setWindowIdx}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            {(overlap ?? []).map((w, i) => (
-              <SelectItem key={i} value={String(i)}>{dayjs(w.start).format("ddd MMM D, h:mm A")} – {dayjs(w.end).format("h:mm A")}</SelectItem>
+            {windows.map((w, i) => (
+              <SelectItem key={i} value={String(i)}>{dayjs(`${w.date}T${w.start}`).format("ddd MMM D, h:mm A")} – {w.end}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -208,7 +200,7 @@ function BookSessionForm({ match, onDone }: { match: Match; onDone: () => void }
           <SelectContent>{["30","45","60","90"].map((m) => <SelectItem key={m} value={m}>{m} min</SelectItem>)}</SelectContent>
         </Select>
       </div>
-      <Button className="w-full" onClick={() => skillId && book.mutate()} disabled={!skillId || book.isPending}>
+      <Button className="w-full" onClick={() => windows.length > 0 && book.mutate()} disabled={windows.length === 0 || book.isPending}>
         {book.isPending ? "Booking…" : "Book session"}
       </Button>
     </div>

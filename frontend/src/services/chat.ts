@@ -6,17 +6,17 @@ export const chatService = {
     const { data } = await apiClient.get<Paginated<ChatRoom>>("/api/chat/rooms/");
     return data;
   },
-  async messages(roomId: number) {
+  async messages(roomId: string) {
     const { data } = await apiClient.get<Paginated<ChatMessage>>(
       `/api/chat/rooms/${roomId}/messages/`,
     );
     return data;
   },
-  async send(roomId: number, body: string) {
-    const { data } = await apiClient.post<ChatMessage>(`/api/chat/rooms/${roomId}/send/`, { body });
+  async send(roomId: string, content: string) {
+    const { data } = await apiClient.post<ChatMessage>(`/api/chat/rooms/${roomId}/send/`, { content });
     return data;
   },
-  async markRead(roomId: number) {
+  async markRead(roomId: string) {
     await apiClient.post(`/api/chat/rooms/${roomId}/read/`);
   },
 };

@@ -12,6 +12,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Plus, Users } from "lucide-react";
 import { toast } from "sonner";
 
+function slugify(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 export default function Community() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["communities"], queryFn: communityService.list });
@@ -19,11 +23,11 @@ export default function Community() {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const create = useMutation({
-    mutationFn: () => communityService.create({ name, description: desc }),
+    mutationFn: () => communityService.create({ name, slug: slugify(name), description: desc }),
     onSuccess: () => { toast.success("Community created"); setOpen(false); setName(""); setDesc(""); qc.invalidateQueries({ queryKey: ["communities"] }); },
   });
   const join = useMutation({
-    mutationFn: (id: number) => communityService.join(id),
+    mutationFn: (id: string) => communityService.join(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["communities"] }),
   });
 
@@ -52,10 +56,10 @@ export default function Community() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
           {(data?.results ?? []).map((c) => (
             <GlassCard key={c.id} className="space-y-3 hover:shadow-elevated transition-shadow">
-              <div className="h-20 -mx-6 -mt-6 mb-2 rounded-t-2xl" style={{ background: `linear-gradient(135deg, hsl(${c.cover_color ?? "184 78% 38%"}) 0%, hsl(210 95% 60%) 100%)` }} />
+              <div className="h-20 -mx-6 -mt-6 mb-2 rounded-t-2xl" style={{ background: `linear-gradient(135deg, hsl(184 78% 38%) 0%, hsl(210 95% 60%) 100%)` }} />
               <div className="flex items-center gap-2">
                 <h3 className="font-display font-semibold flex-1">{c.name}</h3>
-                <span className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" />{c.members_count}</span>
+                <span className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" />{c.member_count}</span>
               </div>
               <p className="text-sm text-muted-foreground line-clamp-2">{c.description}</p>
               <div className="flex items-center gap-2">

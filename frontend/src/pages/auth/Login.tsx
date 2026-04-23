@@ -26,7 +26,7 @@ export default function Login() {
 
   const {
     register, handleSubmit, formState: { errors },
-  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { email: "alex@uni.edu", password: "demopass" } });
+  } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (values: FormValues) => {
     setSubmitting(true);
@@ -36,8 +36,8 @@ export default function Login() {
       toast.success(`Welcome back, ${data.user.first_name ?? data.user.username} 👋`);
       const from = (location.state as { from?: string } | null)?.from ?? "/app";
       navigate(from, { replace: true });
-    } catch (e) {
-      toast.error((e as { detail?: string })?.detail ?? "Login failed");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail ?? e?.detail ?? "Login failed");
     } finally {
       setSubmitting(false);
     }

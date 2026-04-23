@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 export function Topbar({ onMenu }: { onMenu?: () => void }) {
-  const { user, logout } = useAuthStore();
+  const { user, tokens, logout } = useAuthStore();
   const navigate = useNavigate();
   const { data: unread } = useQuery({
     queryKey: ["notifications", "unread-count"],
@@ -26,7 +26,7 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
   });
 
   const handleLogout = async () => {
-    try { await authService.logout(); } catch { /* ignore */ }
+    try { if (tokens?.refresh) await authService.logout(tokens.refresh); } catch { /* ignore */ }
     logout();
     navigate("/login", { replace: true });
   };
@@ -77,7 +77,7 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
-                  <div className="font-medium">{user.full_name ?? user.username}</div>
+                  <div className="font-medium">{user.username}</div>
                   <div className="text-xs text-muted-foreground">{user.email}</div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />

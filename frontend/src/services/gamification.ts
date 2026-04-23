@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/apiClient";
-import type { Badge, GamificationProfile, LeaderboardEntry, Paginated, XpEvent } from "@/types/api";
+import type { GamificationProfile, LeaderboardResponse, Paginated, UserBadge, XpEvent } from "@/types/api";
 
 export const gamificationService = {
   async me() {
@@ -11,11 +11,13 @@ export const gamificationService = {
     return data;
   },
   async badges() {
-    const { data } = await apiClient.get<Badge[]>("/api/gamification/badges/");
-    return data;
+    const { data } = await apiClient.get<Paginated<UserBadge>>("/api/gamification/badges/");
+    return data.results; // unwrap pagination
   },
-  async leaderboard() {
-    const { data } = await apiClient.get<LeaderboardEntry[]>("/api/gamification/leaderboard/");
+  async leaderboard(scope: "global" | "campus" = "global", college?: string) {
+    const { data } = await apiClient.get<LeaderboardResponse>("/api/gamification/leaderboard/", {
+      params: { scope, college },
+    });
     return data;
   },
 };

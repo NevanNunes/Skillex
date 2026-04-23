@@ -20,7 +20,7 @@ import type { PostSort, PostType } from "@/types/api";
 
 export default function CommunityDetail() {
   const { id } = useParams();
-  const cid = Number(id);
+  const cid = id ?? "";
   const qc = useQueryClient();
   const [sort, setSort] = useState<PostSort>("new");
   const community = useQuery({ queryKey: ["community", cid], queryFn: () => communityService.detail(cid) });
@@ -30,11 +30,11 @@ export default function CommunityDetail() {
   const [body, setBody] = useState("");
   const [type, setType] = useState<PostType>("discussion");
   const create = useMutation({
-    mutationFn: () => communityService.createPost(cid, { title, body, type }),
+    mutationFn: () => communityService.createPost(cid, { title, body, post_type: type }),
     onSuccess: () => { toast.success("Posted"); setOpen(false); setTitle(""); setBody(""); qc.invalidateQueries({ queryKey: ["community", cid, "posts"] }); },
   });
   const vote = useMutation({
-    mutationFn: ({ pid, value }: { pid: number; value: -1 | 0 | 1 }) => communityService.votePost(pid, value),
+    mutationFn: ({ pid, vote_type }: { pid: string; vote_type: "upvote" | "downvote" }) => communityService.votePost(pid, vote_type),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["community", cid, "posts"] }),
   });
 
@@ -51,7 +51,7 @@ export default function CommunityDetail() {
               <div className="space-y-3">
                 <Select value={type} onValueChange={(v) => setType(v as PostType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="discussion">Discussion</SelectItem><SelectItem value="question">Question</SelectItem></SelectContent>
+                  <SelectContent><SelectItem value="discussion">Discussion</SelectItem><SelectItem value="question">Question</SelectItem><SelectItem value="resource">Resource</SelectItem></SelectContent>
                 </Select>
                 <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
                 <Textarea placeholder="Body" value={body} onChange={(e) => setBody(e.target.value)} rows={6} />
@@ -74,17 +74,17 @@ export default function CommunityDetail() {
         ) : (posts.data?.results ?? []).map((p) => (
           <GlassCard key={p.id} className="flex gap-3">
             <div className="flex flex-col items-center gap-1">
-              <button aria-label="Upvote" onClick={() => vote.mutate({ pid: p.id, value: p.user_vote === 1 ? 0 : 1 })}>
-                <ArrowBigUp className={p.user_vote === 1 ? "fill-primary text-primary" : "text-muted-foreground"} />
+              <button aria-label="Upvote" onClick={() => vote.mutate({ pid: p.id, vote_type: "upvote" })}>
+                <ArrowBigUp className={p.user_vote === "upvote" ? "fill-primary text-primary" : "text-muted-foreground"} />
               </button>
-              <span className="font-semibold text-sm">{p.score}</span>
-              <button aria-label="Downvote" onClick={() => vote.mutate({ pid: p.id, value: p.user_vote === -1 ? 0 : -1 })}>
-                <ArrowBigDown className={p.user_vote === -1 ? "fill-destructive text-destructive" : "text-muted-foreground"} />
+              <span className="font-semibold text-sm">{p.net_votes}</span>
+              <button aria-label="Downvote" onClick={() => vote.mutate({ pid: p.id, vote_type: "downvote" })}>
+                <ArrowBigDown className={p.user_vote === "downvote" ? "fill-destructive text-destructive" : "text-muted-foreground"} />
               </button>
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="secondary" className="capitalize">{p.type}</Badge>
+                <Badge variant="secondary" className="capitalize">{p.post_type}</Badge>
                 <span className="text-xs text-muted-foreground">{dayjs(p.created_at).format("MMM D")}</span>
               </div>
               <Link to={`/app/posts/${p.id}`} className="block mt-1">
@@ -93,8 +93,8 @@ export default function CommunityDetail() {
               </Link>
               <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                 <UserAvatar user={p.author} size="xs" />
-                <span>{p.author.full_name ?? p.author.username}</span>
-                <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" />{p.comments_count}</span>
+                <span>{p.author.username}</span>
+                <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" />{p.comment_count}</span>
               </div>
             </div>
           </GlassCard>

@@ -1,4 +1,4 @@
-// Domain types shared across services.
+// Domain types — aligned exactly to Django REST backend serializers.
 
 export interface Paginated<T> {
   count: number;
@@ -23,205 +23,309 @@ export interface AuthTokens {
   refresh: string;
 }
 
+// ── Users ──────────────────────────────────────
+// Matches UserProfileSerializer / PublicProfileSerializer
 export interface User {
-  id: number;
+  id: string; // UUID
   username: string;
-  email: string;
+  email?: string;
   first_name?: string;
   last_name?: string;
-  full_name?: string;
-  avatar_url?: string | null;
   bio?: string;
-  university?: string;
-  campus?: string;
+  avatar?: string | null; // Cloudinary URL or null
   timezone?: string;
-  reputation?: number;
-  level?: number;
+  college?: string;
+  year?: number;
+  branch?: string;
+  reputation_score?: number;
+  is_verified?: boolean;
   xp?: number;
-  badges_count?: number;
-  joined_at?: string;
+  teacher_level?: number;
+  learner_level?: number;
+  role?: string;
+  date_joined?: string;
+  availability?: AvailabilitySlot[];
 }
 
-export interface Skill {
-  id: number;
-  name: string;
-  slug?: string;
-  category?: string;
-}
-
-export interface TeachSkill {
-  id: number;
-  skill: Skill;
-  level: "beginner" | "intermediate" | "advanced" | "expert";
-  description?: string;
-}
-
-export interface LearnSkill {
-  id: number;
-  skill: Skill;
-  goal?: string;
-  priority?: "low" | "med" | "high";
-}
-
+// Matches AvailabilitySlotSerializer
 export interface AvailabilitySlot {
-  weekday: number; // 0-6 (Mon-Sun)
-  start: string; // "HH:mm"
-  end: string;
+  id?: string;
+  day_of_week: number; // 0-6
+  start_time: string; // "HH:mm:ss"
+  end_time: string;
+  mode?: string;
 }
 
-export interface OverlapWindow {
-  start: string; // ISO
-  end: string; // ISO
-}
-
-export type MatchStatus = "pending" | "accepted" | "rejected";
-
-export interface Match {
-  id: number;
-  user: User;
-  score: number;
-  shared_skills: string[];
-  status: MatchStatus;
-  created_at: string;
-  type?: "rule" | "semantic";
-  semantic_threshold?: number;
-}
-
-export type SessionStatus = "pending" | "confirmed" | "completed" | "cancelled";
-
-export interface SkillSession {
-  id: number;
-  teacher: User;
-  learner: User;
-  skill: Skill;
-  start: string;
-  end: string;
-  status: SessionStatus;
-  meeting_url?: string | null;
-  notes?: string;
-  created_at: string;
-}
-
-export interface Review {
-  id: number;
-  reviewer: User;
-  rating: number; // 1-5
-  comment: string;
-  session_id: number;
-  created_at: string;
-}
-
-export interface ChatRoom {
-  id: number;
-  name?: string;
-  participants: User[];
-  last_message?: ChatMessage | null;
-  unread_count: number;
-  updated_at: string;
-}
-
-export interface ChatMessage {
-  id: number;
-  room_id: number;
-  sender: User;
-  body: string;
-  created_at: string;
-  read_by?: number[];
-}
-
-export interface Community {
+// ── Skills ─────────────────────────────────────
+// Matches SkillCategorySerializer
+export interface SkillCategory {
   id: number;
   name: string;
   slug: string;
-  description: string;
-  members_count: number;
-  is_member: boolean;
-  cover_color?: string;
 }
 
-export type PostType = "discussion" | "question";
+// Matches SkillSerializer
+export interface Skill {
+  id: string; // UUID
+  name: string;
+  slug: string;
+  category: SkillCategory;
+}
+
+// Matches UserSkillTeachSerializer
+export interface TeachSkill {
+  id: string;
+  skill: Skill;
+  skill_id?: string; // write-only
+  proficiency_level: "beginner" | "intermediate" | "expert";
+  description?: string;
+  hourly_rate?: number;
+  is_active?: boolean;
+  evidence?: SkillEvidence[];
+}
+
+export interface SkillEvidence {
+  id: string;
+  title: string;
+  file: string;
+  uploaded_at: string;
+}
+
+// Matches UserSkillLearnSerializer
+export interface LearnSkill {
+  id: string;
+  skill: Skill;
+  skill_id?: string; // write-only
+  current_level: "beginner" | "intermediate" | "expert";
+}
+
+// ── Matching ───────────────────────────────────
+export type MatchStatus = "pending" | "accepted" | "rejected";
+
+// Matches MatchSerializer
+export interface Match {
+  id: string; // UUID
+  teacher: User; // PublicProfileSerializer
+  teach_skill: TeachSkill; // UserSkillTeachSerializer
+  score: number;
+  status: MatchStatus;
+  created_at: string;
+}
+
+// ── Sessions ───────────────────────────────────
+export type SessionStatus = "pending" | "confirmed" | "completed" | "cancelled";
+
+// Matches SessionSerializer
+export interface SkillSession {
+  id: string; // UUID
+  match: string; // UUID FK
+  teacher: string; // UUID FK
+  learner: string; // UUID FK
+  scheduled_at: string;
+  duration_minutes: number;
+  status: SessionStatus;
+  meeting_url?: string | null;
+  created_at: string;
+}
+
+// ── Reviews ────────────────────────────────────
+// Matches ReviewSerializer
+export interface Review {
+  id: string;
+  session: string; // UUID FK
+  reviewer: string; // UUID FK
+  reviewee: string; // UUID FK
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
+// ── Chat ───────────────────────────────────────
+// Matches ChatRoomSerializer
+export interface ChatRoom {
+  id: string; // UUID
+  match: string; // UUID FK
+  last_message?: ChatMessage | null;
+  unread_count: number;
+  created_at: string;
+}
+
+// Matches MessageSerializer
+export interface ChatMessage {
+  id: string;
+  sender: string; // UUID FK
+  sender_username: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+// ── Community ──────────────────────────────────
+// Matches CommunitySerializer
+export interface Community {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  skill?: string | null;
+  created_by: string;
+  member_count: number;
+  post_count: number;
+  is_member: boolean;
+  created_at: string;
+}
+
+export type PostType = "discussion" | "question" | "resource" | "poll";
 export type PostSort = "new" | "top" | "hot";
 
+// Matches AuthorMiniSerializer
+export interface AuthorMini {
+  id: string;
+  username: string;
+  avatar?: string | null;
+}
+
+// Matches PostSerializer
 export interface Post {
-  id: number;
-  community_id: number;
-  community_name?: string;
-  author: User;
+  id: string;
+  community: string; // UUID FK
+  author: AuthorMini;
   title: string;
   body: string;
-  type: PostType;
-  score: number;
-  user_vote?: -1 | 0 | 1;
-  comments_count: number;
-  accepted_comment_id?: number | null;
+  post_type: PostType;
+  tags: string[];
+  upvotes: number;
+  downvotes: number;
+  net_votes: number;
+  comment_count: number;
+  accepted_comment?: string | null;
+  is_pinned: boolean;
+  user_vote: "upvote" | "downvote" | null;
   created_at: string;
+  updated_at: string;
 }
 
+// Matches CommentSerializer
 export interface Comment {
-  id: number;
-  post_id: number;
-  author: User;
+  id: string;
+  post: string; // UUID FK
+  author: AuthorMini;
   body: string;
-  score: number;
-  user_vote?: -1 | 0 | 1;
-  parent_id?: number | null;
-  is_accepted?: boolean;
+  parent_comment?: string | null;
+  upvotes: number;
+  downvotes: number;
+  net_votes: number;
+  replies: Comment[];
   created_at: string;
+  updated_at: string;
 }
 
+// ── Gamification ───────────────────────────────
+// Matches BadgeSerializer (inside UserBadgeSerializer)
 export interface Badge {
-  id: number;
-  code: string;
+  id: string;
   name: string;
   description: string;
   icon?: string;
-  earned_at?: string;
+  criteria_action: string;
+  criteria_count: number;
 }
 
+export interface UserBadge {
+  id: string;
+  badge: Badge;
+  awarded_at: string;
+}
+
+// Matches XPTransactionSerializer
 export interface XpEvent {
-  id: number;
-  delta: number;
-  reason: string;
+  id: string;
+  action: string;
+  xp_amount: number;
+  reference_id?: string | null;
   created_at: string;
 }
 
+// Matches GamificationSummarySerializer (from get_user_gamification_summary)
 export interface GamificationProfile {
-  user: User;
   xp: number;
-  level: number;
-  next_level_xp: number;
-  reputation: number;
-  badges: Badge[];
+  teacher_level: number;
+  learner_level: number;
+  badges: GamificationBadge[];
+}
+
+// Shape from get_user_gamification_summary .values()
+export interface GamificationBadge {
+  badge__name: string;
+  badge__description: string;
+  badge__icon: string;
+  awarded_at: string;
+}
+
+// Matches LeaderboardView response
+export interface LeaderboardResponse {
+  leaderboard: LeaderboardEntry[];
+  current_user_rank: number | null;
 }
 
 export interface LeaderboardEntry {
   rank: number;
-  user: User;
+  user: {
+    id: string;
+    username: string;
+    avatar: string | null;
+    reputation_score: number;
+  };
   xp: number;
   level: number;
-  is_me?: boolean;
 }
 
+// ── Notifications ──────────────────────────────
 export type NotificationType =
-  | "match"
-  | "session"
-  | "message"
-  | "community"
-  | "badge"
+  | "new_match"
+  | "session_confirmed"
+  | "session_reminder"
+  | "session_cancelled"
+  | "session_completed"
+  | "new_message"
+  | "post_reply"
+  | "answer_accepted"
+  | "badge_earned"
+  | "level_up"
+  | "community_invite"
+  | "report_action"
   | "system";
 
+// Matches NotificationSerializer
 export interface AppNotification {
-  id: number;
-  type: NotificationType;
+  id: string;
+  notification_type: NotificationType;
   title: string;
-  body: string;
-  read: boolean;
-  link?: string;
+  message: string;
+  payload?: Record<string, unknown>;
+  channel?: string;
+  is_read: boolean;
+  read_at?: string | null;
   created_at: string;
 }
 
+// ── Integrations ───────────────────────────────
 export interface IntegrationStatus {
   connected: boolean;
-  email?: string;
   expires_at?: string;
+}
+
+// ── Overlap ────────────────────────────────────
+export interface OverlapResponse {
+  user_a: string;
+  user_b: string;
+  days_ahead: number;
+  overlap_count: number;
+  windows: OverlapWindow[];
+}
+
+export interface OverlapWindow {
+  date: string;
+  start: string;
+  end: string;
 }

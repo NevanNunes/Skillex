@@ -34,8 +34,18 @@ export default function Register() {
       setSession(data.user, { access: data.access, refresh: data.refresh });
       toast.success("Account created. Welcome to SkillEX!");
       navigate("/app/profile", { replace: true });
-    } catch (e) {
-      toast.error((e as { detail?: string })?.detail ?? "Registration failed");
+    } catch (e: any) {
+      console.error("Registration error:", e?.response?.data || e);
+      const data = e?.response?.data;
+      let msg = "Registration failed";
+      if (data && typeof data === "object" && !data.detail) {
+        msg = Object.entries(data)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(" ") : v}`)
+          .join(" | ");
+      } else if (data?.detail) {
+        msg = data.detail;
+      }
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }

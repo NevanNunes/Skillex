@@ -16,7 +16,7 @@ import { useAuthStore } from "@/stores/auth";
 
 export default function PostDetail() {
   const { id } = useParams();
-  const pid = Number(id);
+  const pid = id ?? "";
   const me = useAuthStore((s) => s.user);
   const qc = useQueryClient();
   const post = useQuery({ queryKey: ["post", pid], queryFn: () => communityService.post(pid) });
@@ -24,7 +24,7 @@ export default function PostDetail() {
   const [draft, setDraft] = useState("");
 
   const votePost = useMutation({
-    mutationFn: (value: -1 | 0 | 1) => communityService.votePost(pid, value),
+    mutationFn: (vt: "upvote" | "downvote") => communityService.votePost(pid, vt),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["post", pid] }),
   });
   const addComment = useMutation({
@@ -32,12 +32,12 @@ export default function PostDetail() {
     onSuccess: () => { setDraft(""); qc.invalidateQueries({ queryKey: ["post", pid, "comments"] }); },
   });
   const voteComment = useMutation({
-    mutationFn: ({ cid, value }: { cid: number; value: -1 | 0 | 1 }) => communityService.voteComment(pid, cid, value),
+    mutationFn: ({ cid, vt }: { cid: string; vt: "upvote" | "downvote" }) => communityService.voteComment(pid, cid, vt),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["post", pid, "comments"] }),
   });
   const accept = useMutation({
-    mutationFn: (cid: number) => communityService.acceptComment(pid, cid),
-    onSuccess: () => { toast.success("Marked as accepted answer"); qc.invalidateQueries({ queryKey: ["post", pid] }); qc.invalidateQueries({ queryKey: ["post", pid, "comments"] }); },
+    mutationFn: (cid: string) => communityService.acceptComment(pid, cid),
+    onSuccess: () => { toast.success("Accepted"); qc.invalidateQueries({ queryKey: ["post", pid] }); },
   });
 
   if (post.isLoading || !post.data) return <LoadingGrid count={2} />;
@@ -46,68 +46,54 @@ export default function PostDetail() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title={p.title} description={p.community_name} />
+      <PageHeader title={p.title} />
       <GlassCard className="flex gap-3">
         <div className="flex flex-col items-center gap-1">
-          <button aria-label="Upvote" onClick={() => votePost.mutate(p.user_vote === 1 ? 0 : 1)}>
-            <ArrowBigUp className={p.user_vote === 1 ? "fill-primary text-primary" : "text-muted-foreground"} />
-          </button>
-          <span className="font-semibold">{p.score}</span>
-          <button aria-label="Downvote" onClick={() => votePost.mutate(p.user_vote === -1 ? 0 : -1)}>
-            <ArrowBigDown className={p.user_vote === -1 ? "fill-destructive text-destructive" : "text-muted-foreground"} />
-          </button>
+          <button onClick={() => votePost.mutate("upvote")}><ArrowBigUp className={p.user_vote === "upvote" ? "fill-primary text-primary" : "text-muted-foreground"} /></button>
+          <span className="font-semibold">{p.net_votes}</span>
+          <button onClick={() => votePost.mutate("downvote")}><ArrowBigDown className={p.user_vote === "downvote" ? "fill-destructive text-destructive" : "text-muted-foreground"} /></button>
         </div>
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="secondary" className="capitalize">{p.type}</Badge>
-            <span className="text-xs text-muted-foreground">{dayjs(p.created_at).format("MMM D, YYYY")}</span>
-          </div>
+          <Badge variant="secondary" className="capitalize mb-2">{p.post_type}</Badge>
           <p className="whitespace-pre-wrap">{p.body}</p>
           <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
-            <UserAvatar user={p.author} size="xs" />
-            <span>{p.author.full_name ?? p.author.username}</span>
+            <UserAvatar user={p.author} size="xs" /><span>{p.author.username}</span>
+            <span>{dayjs(p.created_at).format("MMM D, YYYY")}</span>
           </div>
         </div>
       </GlassCard>
 
-      <div className="space-y-3">
-        <h2 className="font-display font-semibold">{(comments.data?.results ?? []).length} comments</h2>
-        <GlassCard className="space-y-2">
-          <Textarea placeholder="Add a comment…" value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} />
-          <div className="flex justify-end">
-            <Button onClick={() => draft.trim() && addComment.mutate()} disabled={!draft.trim() || addComment.isPending}>Comment</Button>
-          </div>
-        </GlassCard>
-        {(comments.data?.results ?? []).map((c) => (
-          <GlassCard key={c.id} className={c.is_accepted ? "border-success/40" : undefined}>
+      <GlassCard className="space-y-2">
+        <Textarea placeholder="Add a comment…" value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} />
+        <div className="flex justify-end"><Button onClick={() => draft.trim() && addComment.mutate()} disabled={!draft.trim()}>Comment</Button></div>
+      </GlassCard>
+
+      {(comments.data?.results ?? []).map((c) => {
+        const accepted = p.accepted_comment === c.id;
+        return (
+          <GlassCard key={c.id} className={accepted ? "border-success/40" : undefined}>
             <div className="flex gap-3">
               <div className="flex flex-col items-center gap-1">
-                <button aria-label="Upvote" onClick={() => voteComment.mutate({ cid: c.id, value: c.user_vote === 1 ? 0 : 1 })}>
-                  <ArrowBigUp className={c.user_vote === 1 ? "fill-primary text-primary" : "text-muted-foreground"} />
-                </button>
-                <span className="text-sm font-semibold">{c.score}</span>
-                <button aria-label="Downvote" onClick={() => voteComment.mutate({ cid: c.id, value: c.user_vote === -1 ? 0 : -1 })}>
-                  <ArrowBigDown className={c.user_vote === -1 ? "fill-destructive text-destructive" : "text-muted-foreground"} />
-                </button>
+                <button onClick={() => voteComment.mutate({ cid: c.id, vt: "upvote" })}><ArrowBigUp className="text-muted-foreground" /></button>
+                <span className="text-sm font-semibold">{c.net_votes}</span>
+                <button onClick={() => voteComment.mutate({ cid: c.id, vt: "downvote" })}><ArrowBigDown className="text-muted-foreground" /></button>
               </div>
               <div className="flex-1">
-                {c.is_accepted && <Badge className="bg-success/15 text-success mb-2"><Check className="h-3 w-3 mr-1" />Accepted answer</Badge>}
+                {accepted && <Badge className="bg-success/15 text-success mb-2"><Check className="h-3 w-3 mr-1" />Accepted</Badge>}
                 <p className="text-sm whitespace-pre-wrap">{c.body}</p>
                 <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <UserAvatar user={c.author} size="xs" />
-                    <span>{c.author.full_name ?? c.author.username}</span>
-                    <span>· {dayjs(c.created_at).fromNow()}</span>
+                    <UserAvatar user={c.author} size="xs" /><span>{c.author.username}</span>
                   </div>
-                  {isAuthor && p.type === "question" && !c.is_accepted && (
-                    <Button size="sm" variant="ghost" onClick={() => accept.mutate(c.id)}>Mark as answer</Button>
+                  {isAuthor && p.post_type === "question" && !accepted && (
+                    <Button size="sm" variant="ghost" onClick={() => accept.mutate(c.id)}>Mark answer</Button>
                   )}
                 </div>
               </div>
             </div>
           </GlassCard>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }

@@ -19,7 +19,7 @@ export default function Notifications() {
     queryFn: () => notificationsService.list(tab === "unread" ? false : undefined),
   });
   const markOne = useMutation({
-    mutationFn: (id: number) => notificationsService.markRead(id),
+    mutationFn: (id: string) => notificationsService.markRead(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
   const markAll = useMutation({
@@ -39,24 +39,21 @@ export default function Notifications() {
           <EmptyState icon={Bell} title="You're all caught up" />
         ) : (
           <GlassCard className="divide-y divide-border/50">
-            {(data?.results ?? []).map((n) => {
-              const inner = (
-                <div className={cn("flex items-start gap-3 py-3 first:pt-0 last:pb-0", !n.read && "")}>
-                  <div className={cn("h-2 w-2 mt-2 rounded-full", n.read ? "bg-muted" : "bg-primary")} />
-                  <div className="flex-1 min-w-0">
-                    <p className={cn("text-sm", !n.read && "font-semibold")}>{n.title}</p>
-                    <p className="text-xs text-muted-foreground">{n.body}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{dayjs(n.created_at).format("MMM D · h:mm A")}</p>
-                  </div>
-                  {!n.read && (
-                    <Button size="icon" variant="ghost" aria-label="Mark read" onClick={(e) => { e.preventDefault(); markOne.mutate(n.id); }}>
-                      <Check className="h-4 w-4" />
-                    </Button>
-                  )}
+            {(data?.results ?? []).map((n) => (
+              <div key={n.id} className={cn("flex items-start gap-3 py-3 first:pt-0 last:pb-0", !n.is_read && "")}>
+                <div className={cn("h-2 w-2 mt-2 rounded-full", n.is_read ? "bg-muted" : "bg-primary")} />
+                <div className="flex-1 min-w-0">
+                  <p className={cn("text-sm", !n.is_read && "font-semibold")}>{n.title}</p>
+                  <p className="text-xs text-muted-foreground">{n.message}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{dayjs(n.created_at).format("MMM D · h:mm A")}</p>
                 </div>
-              );
-              return n.link ? <Link key={n.id} to={n.link} className="block hover:bg-muted/40 -mx-2 px-2 rounded-xl">{inner}</Link> : <div key={n.id}>{inner}</div>;
-            })}
+                {!n.is_read && (
+                  <Button size="icon" variant="ghost" aria-label="Mark read" onClick={(e) => { e.preventDefault(); markOne.mutate(n.id); }}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
           </GlassCard>
         )}
       </div>

@@ -1,8 +1,12 @@
 import { cn } from "@/lib/utils";
-import type { User } from "@/types/api";
+import type { User, AuthorMini } from "@/types/api";
 
-function initials(u: Pick<User, "first_name" | "last_name" | "username" | "full_name">) {
-  const name = u.full_name ?? `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() ?? u.username;
+type AvatarUser = Pick<User, "id" | "username" | "first_name" | "last_name" | "avatar"> | AuthorMini;
+
+function initials(u: AvatarUser) {
+  const fn = "first_name" in u ? u.first_name : undefined;
+  const ln = "last_name" in u ? u.last_name : undefined;
+  const name = `${fn ?? ""} ${ln ?? ""}`.trim() || u.username;
   return name
     .split(/\s+/)
     .filter(Boolean)
@@ -19,12 +23,18 @@ const palette = [
   "from-[hsl(152_65%_50%)] to-[hsl(184_78%_50%)]",
 ];
 
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
 export function UserAvatar({
   user,
   size = "md",
   className,
 }: {
-  user: Pick<User, "id" | "username" | "first_name" | "last_name" | "full_name" | "avatar_url">;
+  user: AvatarUser;
   size?: "xs" | "sm" | "md" | "lg" | "xl";
   className?: string;
 }) {
@@ -35,7 +45,8 @@ export function UserAvatar({
     lg: "h-14 w-14 text-base",
     xl: "h-20 w-20 text-xl",
   } as const;
-  const grad = palette[user.id % palette.length];
+  const grad = palette[hashStr(user.id) % palette.length];
+  const avatarUrl = "avatar" in user ? user.avatar : undefined;
   return (
     <div
       className={cn(
@@ -47,8 +58,8 @@ export function UserAvatar({
       )}
       aria-hidden
     >
-      {user.avatar_url ? (
-        <img src={user.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
+      {avatarUrl ? (
+        <img src={avatarUrl} alt="" className="h-full w-full rounded-full object-cover" />
       ) : (
         <span>{initials(user)}</span>
       )}

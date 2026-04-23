@@ -10,7 +10,7 @@ export interface ChatWsEvent {
 }
 
 interface Options {
-  roomId: number | null;
+  roomId: string | null;
   onEvent: (e: ChatWsEvent) => void;
 }
 

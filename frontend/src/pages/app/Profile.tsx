@@ -19,14 +19,12 @@ import { skillsService } from "@/services/skills";
 import { integrationsService } from "@/services/integrations";
 import { useAuthStore } from "@/stores/auth";
 import { Calendar, Plus, Trash2, Link2, Check } from "lucide-react";
-import type { AvailabilitySlot, TeachSkill } from "@/types/api";
+import type { AvailabilitySlot, TeachSkill, LearnSkill } from "@/types/api";
 
 const profileSchema = z.object({
-  first_name: z.string().min(1),
-  last_name: z.string().min(1),
   bio: z.string().max(500).optional().or(z.literal("")),
-  university: z.string().optional().or(z.literal("")),
-  campus: z.string().optional().or(z.literal("")),
+  college: z.string().optional().or(z.literal("")),
+  timezone: z.string().optional().or(z.literal("")),
 });
 type ProfileForm = z.infer<typeof profileSchema>;
 
@@ -61,18 +59,16 @@ function InfoTab() {
 
   useEffect(() => {
     if (user) reset({
-      first_name: user.first_name ?? "",
-      last_name: user.last_name ?? "",
       bio: user.bio ?? "",
-      university: user.university ?? "",
-      campus: user.campus ?? "",
+      college: user.college ?? "",
+      timezone: user.timezone ?? "",
     });
   }, [user, reset]);
 
   const mutation = useMutation({
     mutationFn: (values: ProfileForm) => usersService.updateMe(values),
     onSuccess: (u) => { setUser(u); toast.success("Profile updated"); },
-    onError: (e: { detail?: string }) => toast.error(e?.detail ?? "Update failed"),
+    onError: (e: any) => toast.error(e?.response?.data?.detail ?? "Update failed"),
   });
 
   if (!user) return null;
@@ -86,11 +82,9 @@ function InfoTab() {
         </div>
       </div>
       <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="grid gap-4 sm:grid-cols-2">
-        <div><Label>First name</Label><Input {...register("first_name")} /></div>
-        <div><Label>Last name</Label><Input {...register("last_name")} /></div>
         <div className="sm:col-span-2"><Label>Bio</Label><Textarea rows={3} {...register("bio")} /></div>
-        <div><Label>University</Label><Input {...register("university")} /></div>
-        <div><Label>Campus</Label><Input {...register("campus")} /></div>
+        <div><Label>College</Label><Input {...register("college")} /></div>
+        <div><Label>Timezone</Label><Input {...register("timezone")} /></div>
         <div className="sm:col-span-2 flex justify-end">
           <Button type="submit" disabled={mutation.isPending} className="shadow-glow">
             {mutation.isPending ? "Saving…" : "Save changes"}
@@ -112,7 +106,7 @@ function AvailabilityTab() {
     onSuccess: () => { toast.success("Availability saved"); qc.invalidateQueries({ queryKey: ["availability"] }); },
   });
 
-  const addSlot = (weekday: number) => setSlots((s) => [...s, { weekday, start: "09:00", end: "10:00" }]);
+  const addSlot = (day: number) => setSlots((s) => [...s, { day_of_week: day, start_time: "09:00", end_time: "10:00" }]);
   const update = (i: number, patch: Partial<AvailabilitySlot>) =>
     setSlots((s) => s.map((slot, idx) => (idx === i ? { ...slot, ...patch } : slot)));
   const remove = (i: number) => setSlots((s) => s.filter((_, idx) => idx !== i));
@@ -125,7 +119,7 @@ function AvailabilityTab() {
       </div>
       <div className="grid gap-3">
         {weekdays.map((w, idx) => {
-          const day = slots.map((s, i) => ({ s, i })).filter((x) => x.s.weekday === idx);
+          const day = slots.map((s, i) => ({ s, i })).filter((x) => x.s.day_of_week === idx);
           return (
             <div key={w} className="glass-subtle p-3">
               <div className="flex items-center justify-between">
@@ -136,9 +130,9 @@ function AvailabilityTab() {
                 {day.length === 0 && <p className="text-xs text-muted-foreground">Unavailable</p>}
                 {day.map(({ s, i }) => (
                   <div key={i} className="flex items-center gap-2">
-                    <Input type="time" value={s.start} onChange={(e) => update(i, { start: e.target.value })} className="w-32" />
+                    <Input type="time" value={s.start_time} onChange={(e) => update(i, { start_time: e.target.value })} className="w-32" />
                     <span className="text-muted-foreground">→</span>
-                    <Input type="time" value={s.end} onChange={(e) => update(i, { end: e.target.value })} className="w-32" />
+                    <Input type="time" value={s.end_time} onChange={(e) => update(i, { end_time: e.target.value })} className="w-32" />
                     <Button size="icon" variant="ghost" onClick={() => remove(i)} aria-label="Remove"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                 ))}
@@ -156,15 +150,15 @@ function TeachTab() {
   const { data: teach } = useQuery({ queryKey: ["skills", "teach"], queryFn: skillsService.listTeach });
   const { data: skills } = useQuery({ queryKey: ["skills", "all"], queryFn: () => skillsService.search() });
   const [skillId, setSkillId] = useState<string>("");
-  const [level, setLevel] = useState<TeachSkill["level"]>("intermediate");
+  const [level, setLevel] = useState<TeachSkill["proficiency_level"]>("intermediate");
   const [desc, setDesc] = useState("");
 
   const add = useMutation({
-    mutationFn: () => skillsService.addTeach({ skill_id: Number(skillId), level, description: desc }),
+    mutationFn: () => skillsService.addTeach({ skill_id: skillId, proficiency_level: level, description: desc }),
     onSuccess: () => { toast.success("Skill added"); setSkillId(""); setDesc(""); qc.invalidateQueries({ queryKey: ["skills", "teach"] }); },
   });
   const remove = useMutation({
-    mutationFn: (id: number) => skillsService.removeTeach(id),
+    mutationFn: (id: string) => skillsService.removeTeach(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["skills", "teach"] }),
   });
 
@@ -176,10 +170,10 @@ function TeachTab() {
           <SelectTrigger><SelectValue placeholder="Select skill" /></SelectTrigger>
           <SelectContent>{(skills ?? []).map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent>
         </Select>
-        <Select value={level} onValueChange={(v) => setLevel(v as TeachSkill["level"])}>
+        <Select value={level} onValueChange={(v) => setLevel(v as TeachSkill["proficiency_level"])}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            {["beginner", "intermediate", "advanced", "expert"].map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+            {["beginner", "intermediate", "expert"].map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
           </SelectContent>
         </Select>
         <Button onClick={() => skillId && add.mutate()} disabled={!skillId || add.isPending}>Add</Button>
@@ -188,7 +182,7 @@ function TeachTab() {
       <div className="flex flex-wrap gap-2">
         {(teach ?? []).map((t) => (
           <div key={t.id} className="glass-subtle px-3 py-2 flex items-center gap-2">
-            <Badge variant="secondary">{t.level}</Badge>
+            <Badge variant="secondary">{t.proficiency_level}</Badge>
             <span className="text-sm font-medium">{t.skill.name}</span>
             <button aria-label="Remove" onClick={() => remove.mutate(t.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" /></button>
           </div>
@@ -204,15 +198,14 @@ function LearnTab() {
   const { data: learn } = useQuery({ queryKey: ["skills", "learn"], queryFn: skillsService.listLearn });
   const { data: skills } = useQuery({ queryKey: ["skills", "all"], queryFn: () => skillsService.search() });
   const [skillId, setSkillId] = useState<string>("");
-  const [goal, setGoal] = useState("");
-  const [priority, setPriority] = useState<"low" | "med" | "high">("med");
+  const [level, setLevel] = useState<LearnSkill["current_level"]>("beginner");
 
   const add = useMutation({
-    mutationFn: () => skillsService.addLearn({ skill_id: Number(skillId), goal, priority }),
-    onSuccess: () => { toast.success("Skill added"); setSkillId(""); setGoal(""); qc.invalidateQueries({ queryKey: ["skills", "learn"] }); },
+    mutationFn: () => skillsService.addLearn({ skill_id: skillId, current_level: level }),
+    onSuccess: () => { toast.success("Skill added"); setSkillId(""); qc.invalidateQueries({ queryKey: ["skills", "learn"] }); },
   });
   const remove = useMutation({
-    mutationFn: (id: number) => skillsService.removeLearn(id),
+    mutationFn: (id: string) => skillsService.removeLearn(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["skills", "learn"] }),
   });
 
@@ -224,17 +217,16 @@ function LearnTab() {
           <SelectTrigger><SelectValue placeholder="Select skill" /></SelectTrigger>
           <SelectContent>{(skills ?? []).map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}</SelectContent>
         </Select>
-        <Select value={priority} onValueChange={(v) => setPriority(v as "low" | "med" | "high")}>
+        <Select value={level} onValueChange={(v) => setLevel(v as LearnSkill["current_level"])}>
           <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>{["low","med","high"].map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+          <SelectContent>{["beginner","intermediate","expert"].map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
         </Select>
         <Button onClick={() => skillId && add.mutate()} disabled={!skillId || add.isPending}>Add</Button>
       </div>
-      <Input placeholder="Your goal…" value={goal} onChange={(e) => setGoal(e.target.value)} />
       <div className="flex flex-wrap gap-2">
         {(learn ?? []).map((t) => (
           <div key={t.id} className="glass-subtle px-3 py-2 flex items-center gap-2">
-            <Badge>{t.priority}</Badge>
+            <Badge>{t.current_level}</Badge>
             <span className="text-sm font-medium">{t.skill.name}</span>
             <button aria-label="Remove" onClick={() => remove.mutate(t.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" /></button>
           </div>
@@ -249,7 +241,7 @@ function IntegrationsTab() {
   const { data, refetch } = useQuery({ queryKey: ["integrations", "google"], queryFn: integrationsService.googleStatus });
   const connect = useMutation({
     mutationFn: integrationsService.googleConnect,
-    onSuccess: (r) => { window.open(r.url, "_blank"); toast.message("Opening Google authorization…"); refetch(); },
+    onSuccess: (r) => { window.open(r.auth_url, "_blank"); toast.message("Opening Google authorization…"); refetch(); },
   });
   return (
     <GlassCard variant="strong" className="space-y-4">
@@ -257,7 +249,6 @@ function IntegrationsTab() {
       <div className="flex items-center justify-between glass-subtle p-4">
         <div>
           <p className="font-semibold">{data?.connected ? "Connected" : "Not connected"}</p>
-          {data?.email && <p className="text-xs text-muted-foreground">{data.email}</p>}
           {!data?.connected && <p className="text-xs text-muted-foreground">Sync sessions to your calendar automatically.</p>}
         </div>
         {data?.connected ? (

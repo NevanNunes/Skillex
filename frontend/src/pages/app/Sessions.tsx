@@ -5,7 +5,6 @@ import { sessionsService } from "@/services/sessions";
 import { useAuthStore } from "@/stores/auth";
 import { PageHeader } from "@/components/common/PageHeader";
 import { GlassCard } from "@/components/common/GlassCard";
-import { UserAvatar } from "@/components/common/UserAvatar";
 import { EmptyState, LoadingGrid } from "@/components/common/States";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -50,8 +49,8 @@ export default function Sessions() {
 function SessionRow({ session }: { session: SkillSession }) {
   const me = useAuthStore((s) => s.user);
   const qc = useQueryClient();
-  const other = session.teacher.id === me?.id ? session.learner : session.teacher;
-  const role = session.teacher.id === me?.id ? "Teaching" : "Learning";
+  const iAmTeacher = session.teacher === me?.id;
+  const role = iAmTeacher ? "Teaching" : "Learning";
 
   const confirm = useMutation({
     mutationFn: () => sessionsService.confirm(session.id),
@@ -72,14 +71,13 @@ function SessionRow({ session }: { session: SkillSession }) {
 
   return (
     <GlassCard className="flex flex-col sm:flex-row sm:items-center gap-4">
-      <UserAvatar user={other} size="md" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-semibold truncate">{session.skill.name} with {other.full_name ?? other.username}</p>
+          <p className="font-semibold truncate">Session on {dayjs(session.scheduled_at).format("MMM D")}</p>
           <Badge variant={variant[session.status]} className="capitalize">{session.status}</Badge>
           <Badge variant="secondary" className="text-xs">{role}</Badge>
         </div>
-        <p className="text-xs text-muted-foreground">{dayjs(session.start).format("ddd, MMM D · h:mm A")} – {dayjs(session.end).format("h:mm A")}</p>
+        <p className="text-xs text-muted-foreground">{dayjs(session.scheduled_at).format("ddd, MMM D · h:mm A")} · {session.duration_minutes} min</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild size="sm" variant="outline"><Link to={`/app/sessions/${session.id}`}>Open</Link></Button>
@@ -94,7 +92,7 @@ function SessionRow({ session }: { session: SkillSession }) {
   );
 }
 
-function ReviewDialog({ sessionId }: { sessionId: number }) {
+function ReviewDialog({ sessionId }: { sessionId: string }) {
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");

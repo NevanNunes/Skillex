@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/apiClient";
-import type { AvailabilitySlot, OverlapWindow, User } from "@/types/api";
+import type { AvailabilitySlot, OverlapResponse, User } from "@/types/api";
 
 export const usersService = {
   async me() {
@@ -7,7 +7,7 @@ export const usersService = {
     return data;
   },
   async updateMe(payload: Partial<User>) {
-    const { data } = await apiClient.put<User>("/api/users/me/", payload);
+    const { data } = await apiClient.patch<User>("/api/users/me/", payload);
     return data;
   },
   async byUsername(username: string) {
@@ -22,8 +22,8 @@ export const usersService = {
     const { data } = await apiClient.put<AvailabilitySlot[]>("/api/users/me/availability/", { slots });
     return data;
   },
-  async overlap(userId: number, days = 7) {
-    const { data } = await apiClient.get<OverlapWindow[]>(`/api/calendar/overlap/${userId}/`, {
+  async overlap(userId: string, days = 7) {
+    const { data } = await apiClient.get<OverlapResponse>(`/api/calendar/overlap/${userId}/`, {
       params: { days },
     });
     return data;
