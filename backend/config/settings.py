@@ -112,6 +112,11 @@ USE_TZ = True
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+CORS_ALLOWED_ORIGINS = [
+    "https://insight-guild-net.lovable.app",
+    "https://saint-perfume-bulldozer.ngrok-free.dev",
+]
+
 CORS_ALLOW_ALL_ORIGINS = True
 
 REST_FRAMEWORK = {
@@ -177,4 +182,17 @@ DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 # ──────────────────────────────────────────
 # AI Generation (Gemini)
 # ──────────────────────────────────────────
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyDPVbBUs-R9Kgyg43STm1sV67QUDQdrm9Y')
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyDPVbBUs-R9Kgyg43STm1sV67QUDQdrm9Y')
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "ngrok-skip-browser-warning",  # this is the missing one
+]

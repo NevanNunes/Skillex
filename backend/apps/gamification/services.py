@@ -24,6 +24,36 @@ XP_TABLE = {
 }
 
 
+def deduct_xp(user, action, reference_id=None):
+    """
+    Reverse XP for a given action (e.g., when an upvote is removed).
+    Creates a negative XPTransaction and recalculates totals.
+    """
+    xp_amount = XP_TABLE.get(action, 0)
+    if xp_amount == 0:
+        return None
+
+    tx = XPTransaction.objects.create(
+        user=user,
+        action=f'{action}_reversed',
+        xp_amount=-xp_amount,
+        reference_id=reference_id,
+    )
+
+    # Recalculate total XP from the ledger (source of truth)
+    total_xp = XPTransaction.objects.filter(user=user).aggregate(
+        total=Sum('xp_amount')
+    )['total'] or 0
+    total_xp = max(0, total_xp)  # XP can't go negative
+
+    user.xp = total_xp
+    user.teacher_level = _compute_level(total_xp)
+    user.learner_level = _compute_level(total_xp)
+    user.save(update_fields=['xp', 'teacher_level', 'learner_level'])
+
+    return tx
+
+
 def award_xp(user, action, reference_id=None):
     """
     Award XP for a given action.
