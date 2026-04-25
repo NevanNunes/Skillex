@@ -4,6 +4,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from apps.users.models import User
 from apps.skills.models import SkillCategory, Skill, UserSkillTeach, UserSkillLearn
+from apps.notification.models import Notification
 from .models import Match
 from .services import refresh_matches_for_learner, compute_score
 
@@ -37,6 +38,19 @@ class MatchingServiceTests(TestCase):
         self.assertEqual(match.learner, self.learner)
         self.assertEqual(match.status, 'pending')
 
+    def test_refresh_creates_teacher_notification(self):
+        refresh_matches_for_learner(self.learner)
+        n = Notification.objects.get(user=self.teacher, notification_type='new_match')
+        self.assertEqual(n.payload.get('match_id'), str(Match.objects.first().id))
+
+    def test_refresh_does_not_duplicate_notification_for_existing_match(self):
+        refresh_matches_for_learner(self.learner)
+        refresh_matches_for_learner(self.learner)
+        self.assertEqual(
+            Notification.objects.filter(user=self.teacher, notification_type='new_match').count(),
+            1,
+        )
+
     def test_score_is_positive(self):
         score = compute_score(self.teach_slot, 'beginner')
         self.assertGreater(score, 0.0)
@@ -53,7 +67,7 @@ class MatchingServiceTests(TestCase):
 
 
 class MatchAPITests(TestCase):
-    """Test match listing, accepting, and rejecting via API."""
+    """Test match listing, mutual accepting, and rejecting via API."""
 
     def setUp(self):
         self.teacher = User.objects.create_user(
@@ -82,7 +96,26 @@ class MatchAPITests(TestCase):
         res = self.client.post(f'/api/matches/{self.match.id}/accept/')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.match.refresh_from_db()
+        self.assertEqual(self.match.status, 'pending')
+        self.assertTrue(self.match.learner_accepted)
+        self.assertFalse(self.match.teacher_accepted)
+
+    def test_second_accept_finalizes_match(self):
+        from apps.chat.models import ChatRoom
+        self.client.post(f'/api/matches/{self.match.id}/accept/')
+
+        teacher_client = APIClient()
+        teacher_client.force_authenticate(user=self.teacher)
+        res = teacher_client.post(f'/api/matches/{self.match.id}/accept/')
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.match.refresh_from_db()
         self.assertEqual(self.match.status, 'accepted')
+        self.assertTrue(self.match.learner_accepted)
+        self.assertTrue(self.match.teacher_accepted)
+
+        first, second = sorted([self.teacher, self.learner], key=lambda u: str(u.id))
+        self.assertTrue(ChatRoom.objects.filter(teacher=first, learner=second).exists())
 
     def test_reject_match(self):
         res = self.client.post(f'/api/matches/{self.match.id}/reject/')
@@ -90,17 +123,26 @@ class MatchAPITests(TestCase):
         self.match.refresh_from_db()
         self.assertEqual(self.match.status, 'rejected')
 
-    def test_accept_creates_chatroom(self):
+    def test_first_accept_does_not_create_chatroom(self):
         from apps.chat.models import ChatRoom
         self.client.post(f'/api/matches/{self.match.id}/accept/')
-        self.assertTrue(ChatRoom.objects.filter(match=self.match).exists())
+        first, second = sorted([self.teacher, self.learner], key=lambda u: str(u.id))
+        self.assertFalse(ChatRoom.objects.filter(teacher=first, learner=second).exists())
 
-    def test_teacher_cannot_accept(self):
-        """Only the learner should be able to accept/reject."""
+    def test_teacher_can_accept(self):
         client = APIClient()
         client.force_authenticate(user=self.teacher)
         res = client.post(f'/api/matches/{self.match.id}/accept/')
-        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+    def test_teacher_can_list_pending_matches(self):
+        client = APIClient()
+        client.force_authenticate(user=self.teacher)
+        res = client.get('/api/matches/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        rows = res.data['results'] if isinstance(res.data, dict) and 'results' in res.data else res.data
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(str(rows[0]['id']), str(self.match.id))
 
     def test_invalid_action(self):
         res = self.client.post(f'/api/matches/{self.match.id}/invalid/')

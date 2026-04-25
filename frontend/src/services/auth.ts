@@ -24,8 +24,13 @@ export const authService = {
    * Register: backend returns { id, email, username } — no tokens.
    * After registration, we auto-login to get tokens.
    */
+  async registerOnly(payload: { email: string; username: string; password: string; first_name?: string; last_name?: string }) {
+    const { data } = await apiClient.post("/api/auth/register/", payload);
+    return data;
+  },
+
   async register(payload: { email: string; username: string; password: string; first_name?: string; last_name?: string }) {
-    await apiClient.post("/api/auth/register/", payload);
+    await authService.registerOnly(payload);
     // Auto-login after registration
     return authService.login({ email: payload.email, password: payload.password });
   },

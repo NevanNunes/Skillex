@@ -2,6 +2,7 @@
 from django.db.models import Q
 from apps.skills.models import UserSkillTeach, UserSkillLearn
 from apps.users.models import User
+from apps.notification.services import notify_match
 from .models import Match
 
 LEVEL_MAP = {'beginner': 1, 'intermediate': 2, 'expert': 3}
@@ -51,9 +52,17 @@ def refresh_matches_for_learner(learner: User) -> None:
 
         for teach_slot in candidates:
             score = compute_score(teach_slot, learn_skill.current_level)
-            Match.objects.update_or_create(
+            match, created = Match.objects.update_or_create(
                 teacher=teach_slot.user,
                 learner=learner,
                 teach_skill=teach_slot,
                 defaults={'score': score, 'status': 'pending'},
             )
+
+            # Notify teacher only when a brand-new request is created.
+            if created:
+                notify_match(
+                    user=teach_slot.user,
+                    match_user_name=learner.username,
+                    match_id=match.id,
+                )

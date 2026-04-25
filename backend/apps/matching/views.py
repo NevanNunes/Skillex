@@ -1,28 +1,36 @@
 # apps/matching/views.py
 from rest_framework import generics, status
-from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.db.models import Q
 from .models import Match
 from .serializers import MatchSerializer
 from .services import refresh_matches_for_learner
+
+
+def _canonical_user_pair(user_a, user_b):
+    return tuple(sorted([user_a, user_b], key=lambda u: str(u.id)))
 
 class MatchListView(generics.ListAPIView):
     serializer_class = MatchSerializer
 
     def get_queryset(self):
         return Match.objects.filter(
-            learner=self.request.user,
+            Q(learner=self.request.user) | Q(teacher=self.request.user),
             status='pending',
         ).select_related(
-            'teacher', 'teach_skill', 'teach_skill__skill'
+            'teacher', 'learner', 'teach_skill', 'teach_skill__skill'
         ).order_by('-score')
 
 class MatchActionView(APIView):
     """POST /api/matches/{id}/accept/  or  /reject/"""
 
     def _get_match(self, pk, user):
-        return Match.objects.get(id=pk, learner=user, status='pending')
+        return Match.objects.get(
+            Q(learner=user) | Q(teacher=user),
+            id=pk,
+            status='pending',
+        )
 
     def post(self, request, pk, action):
         try:
@@ -31,12 +39,25 @@ class MatchActionView(APIView):
             return Response({'detail': 'Not found.'}, status=404)
 
         if action == 'accept':
-            match.status = 'accepted'
-            match.save()
-            # create chat room when accepted
-            from apps.chat.models import ChatRoom
-            ChatRoom.objects.get_or_create(match=match)
-            return Response(MatchSerializer(match).data)
+            if request.user == match.teacher:
+                match.teacher_accepted = True
+            elif request.user == match.learner:
+                match.learner_accepted = True
+
+            if match.teacher_accepted and match.learner_accepted:
+                match.status = 'accepted'
+
+            match.save(update_fields=['teacher_accepted', 'learner_accepted', 'status'])
+
+            if match.status == 'accepted':
+                # create chat room only after both users accept
+                from apps.chat.models import ChatRoom
+                teacher_user, learner_user = _canonical_user_pair(match.teacher, match.learner)
+                ChatRoom.objects.get_or_create(
+                    teacher=teacher_user,
+                    learner=learner_user,
+                )
+            return Response(MatchSerializer(match, context={'request': request}).data)
 
         elif action == 'reject':
             match.status = 'rejected'
@@ -95,4 +116,4 @@ class ProfileIndexView(APIView):
         return Response(
             {'detail': 'Indexing failed — Qdrant may be unavailable.'},
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
+        )

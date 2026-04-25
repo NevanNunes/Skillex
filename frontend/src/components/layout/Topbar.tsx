@@ -1,8 +1,9 @@
-import { Bell, LogOut, Menu, Search, Settings } from "lucide-react";
+import { Bell, LogOut, Menu, MessageCircle, Search, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth";
 import { notificationsService } from "@/services/notifications";
+import { chatService } from "@/services/chat";
 import { authService } from "@/services/auth";
 import { UserAvatar } from "@/components/common/UserAvatar";
 import { Logo } from "@/components/brand/Logo";
@@ -20,10 +21,16 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
   const { user, tokens, logout } = useAuthStore();
   const navigate = useNavigate();
   const { data: unread } = useQuery({
-    queryKey: ["notifications", "unread-count"],
-    queryFn: notificationsService.unreadCount,
+    queryKey: ["notifications", "unread-count", "matching"],
+    queryFn: notificationsService.matchingUnreadCount,
     refetchInterval: 30000,
   });
+  const { data: rooms } = useQuery({
+    queryKey: ["chat", "rooms", "topbar-unread"],
+    queryFn: chatService.rooms,
+    refetchInterval: 10000,
+  });
+  const unreadChat = (rooms?.results ?? []).reduce((sum, room) => sum + (room.unread_count ?? 0), 0);
 
   const handleLogout = async () => {
     try { if (tokens?.refresh) await authService.logout(tokens.refresh); } catch { /* ignore */ }
@@ -56,6 +63,18 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <button
+            onClick={() => navigate("/app/chat")}
+            className="relative p-2 rounded-lg hover:bg-muted/60"
+            aria-label={`Chats${unreadChat ? `, ${unreadChat} unread` : ""}`}
+          >
+            <MessageCircle className="h-5 w-5" />
+            {!!unreadChat && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full bg-gradient-primary text-[10px] font-bold text-primary-foreground shadow-glow">
+                {unreadChat}
+              </span>
+            )}
+          </button>
           <button
             onClick={() => navigate("/app/notifications")}
             className="relative p-2 rounded-lg hover:bg-muted/60"
