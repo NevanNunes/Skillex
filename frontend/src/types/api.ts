@@ -341,4 +341,7 @@ export interface OverlapWindow {
   date: string;
   start: string;
   end: string;
+  day?: string;
+  mode?: string;
+  duration_minutes?: number;
 }

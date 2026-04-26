@@ -18,11 +18,14 @@ export default function Chat() {
   const { roomId } = useParams();
   const navigate = useNavigate();
   const { data: rooms, isLoading } = useQuery({ queryKey: ["chat", "rooms"], queryFn: chatService.rooms });
-  const activeRoomId = roomId ?? rooms?.results[0]?.id;
+  const roomCount = rooms?.results?.length ?? 0;
+  const activeRoomId = roomId ?? (roomCount === 1 ? rooms?.results[0]?.id : undefined);
 
   useEffect(() => {
-    if (!roomId && rooms?.results[0]) navigate(`/app/chat/${rooms.results[0].id}`, { replace: true });
-  }, [rooms, roomId, navigate]);
+    if (!roomId && roomCount === 1 && rooms?.results[0]) {
+      navigate(`/app/chat/${rooms.results[0].id}`, { replace: true });
+    }
+  }, [rooms, roomCount, roomId, navigate]);
 
   return (
     <div>
@@ -51,7 +54,7 @@ export default function Chat() {
           </div>
         </GlassCard>
 
-        {activeRoomId ? <ChatThread roomId={activeRoomId} /> : <GlassCard><EmptyState title="Pick a conversation" /></GlassCard>}
+        {activeRoomId ? <ChatThread key={activeRoomId} roomId={activeRoomId} /> : <GlassCard><EmptyState title="Pick a conversation" description="Choose the person you want to message from the list." /></GlassCard>}
       </div>
     </div>
   );

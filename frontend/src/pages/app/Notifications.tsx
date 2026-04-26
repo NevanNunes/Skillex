@@ -16,23 +16,20 @@ export default function Notifications() {
   const [tab, setTab] = useState<"all" | "unread">("all");
   const { data, isLoading } = useQuery({
     queryKey: ["notifications", tab],
-    queryFn: () => notificationsService.matchingList(tab === "unread" ? false : undefined),
+    queryFn: () => notificationsService.list(tab === "unread" ? false : undefined),
   });
   const markOne = useMutation({
     mutationFn: (id: string) => notificationsService.markRead(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
   const markAll = useMutation({
-    mutationFn: async () => {
-      const unreadMatching = (data?.results ?? []).filter((notification) => !notification.is_read);
-      await Promise.all(unreadMatching.map((notification) => notificationsService.markRead(notification.id)));
-    },
+    mutationFn: () => notificationsService.markAll(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
   return (
     <div>
-      <PageHeader title="Notifications" description="Stay on top of match updates."
+      <PageHeader title="Notifications" description="Stay on top of match, session, and system updates."
         actions={<Button variant="outline" onClick={() => markAll.mutate()}><CheckCheck className="h-4 w-4 mr-1" />Mark all read</Button>} />
       <Tabs value={tab} onValueChange={(v) => setTab(v as "all" | "unread")}>
         <TabsList className="glass-subtle"><TabsTrigger value="all">All</TabsTrigger><TabsTrigger value="unread">Unread</TabsTrigger></TabsList>

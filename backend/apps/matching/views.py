@@ -22,6 +22,18 @@ class MatchListView(generics.ListAPIView):
             'teacher', 'learner', 'teach_skill', 'teach_skill__skill'
         ).order_by('-score')
 
+
+class AcceptedMatchListView(generics.ListAPIView):
+    serializer_class = MatchSerializer
+
+    def get_queryset(self):
+        return Match.objects.filter(
+            Q(learner=self.request.user) | Q(teacher=self.request.user),
+            status='accepted',
+        ).select_related(
+            'teacher', 'learner', 'teach_skill', 'teach_skill__skill'
+        ).order_by('-created_at')
+
 class MatchActionView(APIView):
     """POST /api/matches/{id}/accept/  or  /reject/"""
 

@@ -27,8 +27,8 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { data: unread } = useQuery({
-    queryKey: ["notifications", "unread-count", "matching"],
-    queryFn: notificationsService.matchingUnreadCount,
+    queryKey: ["notifications", "unread-count"],
+    queryFn: notificationsService.unreadCount,
     refetchInterval: 30000,
   });
   const { data: rooms } = useQuery({

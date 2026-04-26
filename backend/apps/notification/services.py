@@ -42,6 +42,17 @@ def notify_match(user, match_user_name, match_id):
     )
 
 
+def notify_session_scheduled(user, partner_name, session_id, scheduled_at):
+    """Notify about a newly scheduled session."""
+    return notify(
+        user=user,
+        notification_type='session_scheduled',
+        title='Session scheduled',
+        message=f'Your session with {partner_name} is scheduled for {scheduled_at.strftime("%b %d at %I:%M %p")}.',
+        payload={'session_id': str(session_id)},
+    )
+
+
 def notify_session_confirmed(user, partner_name, session_id, scheduled_at):
     """Notify about a confirmed session."""
     return notify(

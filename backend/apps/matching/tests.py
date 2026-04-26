@@ -144,6 +144,25 @@ class MatchAPITests(TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(str(rows[0]['id']), str(self.match.id))
 
+    def test_accepted_match_list_is_empty_until_mutual_accept(self):
+        res = self.client.get('/api/matches/accepted/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        rows = res.data['results'] if isinstance(res.data, dict) and 'results' in res.data else res.data
+        self.assertEqual(len(rows), 0)
+
+    def test_accepted_match_list_returns_mutually_accepted_match(self):
+        self.client.post(f'/api/matches/{self.match.id}/accept/')
+
+        teacher_client = APIClient()
+        teacher_client.force_authenticate(user=self.teacher)
+        teacher_client.post(f'/api/matches/{self.match.id}/accept/')
+
+        res = self.client.get('/api/matches/accepted/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        rows = res.data['results'] if isinstance(res.data, dict) and 'results' in res.data else res.data
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(str(rows[0]['id']), str(self.match.id))
+
     def test_invalid_action(self):
         res = self.client.post(f'/api/matches/{self.match.id}/invalid/')
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)

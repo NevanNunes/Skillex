@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { matchingService } from "@/services/matching";
 import { notificationsService } from "@/services/notifications";
+import { integrationsService } from "@/services/integrations";
 import { sessionsService } from "@/services/sessions";
 import { usersService } from "@/services/users";
 import { GlassCard } from "@/components/common/GlassCard";
@@ -194,13 +195,19 @@ function BookSessionForm({ match, onDone }: { match: Match; onDone: () => void }
   const [duration, setDuration] = useState("60");
 
   const book = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const w = windows[Number(windowIdx)];
       const scheduled_at = dayjs(`${w.date}T${w.start}`).toISOString();
-      return sessionsService.book({ match_id: match.id, scheduled_at, duration_minutes: Number(duration) });
+      const session = await sessionsService.book({ match_id: match.id, scheduled_at, duration_minutes: Number(duration) });
+      try {
+        const room = await integrationsService.dailyRoom(session.id);
+        return { session, room };
+      } catch {
+        return { session };
+      }
     },
-    onSuccess: () => {
-      toast.success("Session booked");
+    onSuccess: ({ room }) => {
+      toast.success(room?.meeting_url ? "Session booked and video room created" : "Session booked");
       qc.invalidateQueries({ queryKey: ["sessions"] });
       onDone();
     },
