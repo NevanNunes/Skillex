@@ -106,9 +106,15 @@ export type MatchStatus = "pending" | "accepted" | "rejected";
 export interface Match {
   id: string; // UUID
   teacher: User; // PublicProfileSerializer
+  learner?: User;
   teach_skill: TeachSkill; // UserSkillTeachSerializer
   score: number;
   status: MatchStatus;
+  teacher_accepted?: boolean;
+  learner_accepted?: boolean;
+  counterpart?: User;
+  accepted_by_me?: boolean;
+  waiting_for_other?: boolean;
   created_at: string;
 }
 
@@ -144,7 +150,14 @@ export interface Review {
 // Matches ChatRoomSerializer
 export interface ChatRoom {
   id: string; // UUID
-  match: string; // UUID FK
+  teacher?: string; // UUID FK
+  learner?: string; // UUID FK
+  match?: string; // legacy field (optional)
+  participant?: {
+    id: string;
+    username: string;
+    avatar?: string | null;
+  };
   last_message?: ChatMessage | null;
   unread_count: number;
   created_at: string;
@@ -328,4 +341,7 @@ export interface OverlapWindow {
   date: string;
   start: string;
   end: string;
+  day?: string;
+  mode?: string;
+  duration_minutes?: number;
 }

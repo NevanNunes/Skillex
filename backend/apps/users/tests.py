@@ -114,3 +114,46 @@ class ProfileTests(TestCase):
         client = APIClient()
         res = client.get('/api/users/me/')
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class UserSearchTests(TestCase):
+    def setUp(self):
+        self.me = User.objects.create_user(
+            email='me@example.com',
+            username='searcher',
+            password='StrongPass123!',
+            college='Search University',
+        )
+        self.alice = User.objects.create_user(
+            email='alice@example.com',
+            username='alice.w',
+            password='StrongPass123!',
+            bio='Helps with React and design systems.',
+            college='Search University',
+        )
+        User.objects.create_user(
+            email='bob@example.com',
+            username='bob.t',
+            password='StrongPass123!',
+            bio='Math tutor',
+            college='Other College',
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.me)
+
+    def test_search_people_by_username(self):
+        res = self.client.get('/api/users/', {'search': 'alice'})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data['count'], 1)
+        self.assertEqual(res.data['results'][0]['username'], 'alice.w')
+
+    def test_search_people_excludes_current_user(self):
+        res = self.client.get('/api/users/', {'search': 'searcher'})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        usernames = [item['username'] for item in res.data['results']]
+        self.assertNotIn('searcher', usernames)
+
+    def test_search_people_requires_authentication(self):
+        client = APIClient()
+        res = client.get('/api/users/', {'search': 'alice'})
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)

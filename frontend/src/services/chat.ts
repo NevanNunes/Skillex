@@ -9,6 +9,7 @@ export const chatService = {
   async messages(roomId: string) {
     const { data } = await apiClient.get<Paginated<ChatMessage>>(
       `/api/chat/rooms/${roomId}/messages/`,
+      { params: { ordering: "-created_at" } },
     );
     return data;
   },

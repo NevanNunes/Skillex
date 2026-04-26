@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { authService } from "@/services/auth";
 import { useAuthStore } from "@/stores/auth";
 import { toast } from "sonner";
+import type { ApiError } from "@/types/api";
 
 const schema = z.object({
   first_name: z.string().min(1, "Required"),
@@ -30,21 +31,31 @@ export default function Register() {
   const onSubmit = async (values: FormValues) => {
     setSubmitting(true);
     try {
-      const data = await authService.register(values);
-      setSession(data.user, { access: data.access, refresh: data.refresh });
-      toast.success("Account created. Welcome to SkillEX!");
-      navigate("/app/profile", { replace: true });
-    } catch (e: any) {
-      console.error("Registration error:", e?.response?.data || e);
-      const data = e?.response?.data;
+      await authService.registerOnly(values);
+      try {
+        const data = await authService.login({ email: values.email, password: values.password });
+        setSession(data.user, { access: data.access, refresh: data.refresh });
+        toast.success("Account created. Welcome to SkillEX!");
+        navigate("/app/profile", { replace: true });
+      } catch {
+        toast.success("Account created. Please sign in.");
+        navigate("/login", { replace: true });
+      }
+    } catch (e) {
+      const err = e as ApiError & { response?: { data?: unknown } };
+      console.error("Registration error:", err.response?.data || err);
       let msg = "Registration failed";
-      if (data && typeof data === "object" && !data.detail) {
-        msg = Object.entries(data)
+
+      if (err.detail) {
+        msg = err.detail;
+      }
+
+      if (err.fieldErrors && Object.keys(err.fieldErrors).length) {
+        msg = Object.entries(err.fieldErrors)
           .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(" ") : v}`)
           .join(" | ");
-      } else if (data?.detail) {
-        msg = data.detail;
       }
+
       toast.error(msg);
     } finally {
       setSubmitting(false);

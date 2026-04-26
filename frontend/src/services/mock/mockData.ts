@@ -213,7 +213,14 @@ function buildOverlapWindows(): OverlapWindow[] {
     start.setHours(16, 0, 0, 0);
     const end = new Date(start);
     end.setHours(18, 0, 0, 0);
-    return { start: start.toISOString(), end: end.toISOString() };
+    return {
+      start: start.toISOString(),
+      end: end.toISOString(),
+      date: start.toISOString().slice(0, 10),
+      day: start.toLocaleDateString("en-US", { weekday: "long" }),
+      mode: "online",
+      duration_minutes: 120,
+    };
   });
 }
 
@@ -245,6 +252,20 @@ export async function handleMockRequest(req: Req): Promise<{ status: number; dat
   if (path === "/api/users/me/availability/" && m === "PUT") {
     availability = (req.data as { slots: AvailabilitySlot[] }).slots ?? [];
     return { status: 200, data: availability };
+  }
+  if (path === "/api/users/" && m === "GET") {
+    const q = (req.params?.search as string | undefined)?.toLowerCase().trim();
+    const pageSize = Number(req.params?.page_size ?? 8);
+    const list = [me, ...peers].filter((u) => {
+      if (u.id === me.id) return false;
+      if (!q) return true;
+      const haystack = [u.username, u.first_name, u.last_name, u.college, u.bio]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+    return { status: 200, data: paginate(list, 1, pageSize) };
   }
   let mm = match(/^\/api\/users\/([^/]+)\/$/, path);
   if (mm && m === "GET") {
@@ -290,6 +311,9 @@ export async function handleMockRequest(req: Req): Promise<{ status: number; dat
   // Matching
   if (path === "/api/matches/" && m === "GET") {
     return { status: 200, data: paginate(matches.filter((x) => x.type !== "semantic")) };
+  }
+  if (path === "/api/matches/accepted/" && m === "GET") {
+    return { status: 200, data: paginate(matches.filter((x) => x.status === "accepted")) };
   }
   if (path === "/api/matches/semantic/" && m === "GET") {
     const threshold = Number(req.params?.threshold ?? 0.7);
@@ -503,7 +527,12 @@ export async function handleMockRequest(req: Req): Promise<{ status: number; dat
   if (mm && m === "POST") return { status: 200, data: { synced: true } };
   mm = match(/^\/api\/integrations\/daily\/(room|token)\/(\d+)\/$/, path);
   if (mm && m === "POST")
-    return { status: 200, data: mm[1] === "room" ? { url: "https://daily.co/skillex-mock" } : { token: "mock-token" } };
+    return {
+      status: 200,
+      data: mm[1] === "room"
+        ? { room_name: `session-${mm[2]}`, meeting_url: "https://daily.co/skillex-mock", detail: "Room created" }
+        : { token: "mock-token", meeting_url: "https://daily.co/skillex-mock", room_name: `session-${mm[2]}` },
+    };
 
   return { status: 404, data: { detail: `Mock route not found: ${m} ${path}` } };
 }

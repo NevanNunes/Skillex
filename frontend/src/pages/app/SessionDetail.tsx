@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { sessionsService } from "@/services/sessions";
+import { integrationsService } from "@/services/integrations";
 import { PageHeader } from "@/components/common/PageHeader";
 import { GlassCard } from "@/components/common/GlassCard";
 import { LoadingGrid } from "@/components/common/States";
@@ -10,10 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Video, MessageCircle, Info } from "lucide-react";
 import { useAuthStore } from "@/stores/auth";
 import dayjs from "dayjs";
+import { toast } from "sonner";
 
 export default function SessionDetail() {
   const { id } = useParams();
   const sid = id ?? "";
+  const qc = useQueryClient();
   const me = useAuthStore((s) => s.user);
   const { data, isLoading } = useQuery({
     queryKey: ["session", sid],
@@ -23,6 +26,17 @@ export default function SessionDetail() {
   if (!data) return <div className="glass p-6">Session not found. <Link to="/app/sessions" className="text-primary">Back</Link></div>;
   const iAmTeacher = data.teacher === me?.id;
   const endTime = dayjs(data.scheduled_at).add(data.duration_minutes, "minute");
+  const joinVideo = useMutation({
+    mutationFn: () => integrationsService.dailyRoom(data.id),
+    onSuccess: ({ meeting_url }) => {
+      if (meeting_url) {
+        window.open(meeting_url, "_blank", "noopener,noreferrer");
+      }
+      qc.invalidateQueries({ queryKey: ["session", sid] });
+      qc.invalidateQueries({ queryKey: ["sessions"] });
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.detail ?? "Could not open room"),
+  });
 
   return (
     <div className="space-y-4">
@@ -47,8 +61,8 @@ export default function SessionDetail() {
               <Video className="h-10 w-10 text-primary mx-auto" />
               <p className="font-display font-semibold">Ready when you are</p>
               <p className="text-sm text-muted-foreground">Powered by Daily.co</p>
-              <Button size="lg" asChild className="shadow-glow">
-                <a href={data.meeting_url ?? "#"} target="_blank" rel="noreferrer">Join video</a>
+              <Button size="lg" className="shadow-glow" onClick={() => joinVideo.mutate()} disabled={joinVideo.isPending}>
+                {joinVideo.isPending ? "Opening..." : "Join video"}
               </Button>
             </div>
           </GlassCard>

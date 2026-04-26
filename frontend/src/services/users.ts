@@ -1,9 +1,15 @@
 import { apiClient } from "@/lib/apiClient";
-import type { AvailabilitySlot, OverlapResponse, User } from "@/types/api";
+import type { AvailabilitySlot, OverlapResponse, Paginated, User } from "@/types/api";
 
 export const usersService = {
   async me() {
     const { data } = await apiClient.get<User>("/api/users/me/");
+    return data;
+  },
+  async search(query: string, pageSize = 8) {
+    const { data } = await apiClient.get<Paginated<User>>("/api/users/", {
+      params: { search: query, page_size: pageSize },
+    });
     return data;
   },
   async updateMe(payload: Partial<User>) {

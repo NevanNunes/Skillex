@@ -5,6 +5,7 @@ Views for external API integrations:
   - Daily.co room/token management
 """
 from datetime import timedelta
+from django.conf import settings
 from django.utils import timezone
 from django.shortcuts import redirect
 from rest_framework.views import APIView
@@ -139,11 +140,23 @@ class CreateVideoRoomView(APIView):
         session = get_object_or_404(Session, id=session_id)
         if request.user not in [session.teacher, session.learner]:
             return Response({'detail': 'Not a participant.'}, status=403)
-        if session.status != 'confirmed':
-            return Response({'detail': 'Session must be confirmed.'}, status=400)
+        if session.status == 'cancelled':
+            return Response({'detail': 'Cancelled sessions cannot create a video room.'}, status=400)
 
-        # Don't recreate if already has a meeting URL
+        # Don't recreate if already has a meeting URL.
+        # If this is a legacy Jitsi fallback link, rotate it to the current fallback provider.
         if session.meeting_url:
+            if (not settings.DAILY_API_KEY) and ('meet.jit.si/' in session.meeting_url):
+                room = create_room(session.id, session.scheduled_at, session.duration_minutes)
+                if not room:
+                    return Response({'detail': 'Failed to refresh video room.'}, status=502)
+                session.meeting_url = room['url']
+                session.save(update_fields=['meeting_url'])
+                return Response({
+                    'room_name': room['name'],
+                    'meeting_url': room['url'],
+                    'detail': 'Legacy room refreshed.',
+                }, status=200)
             return Response({
                 'meeting_url': session.meeting_url,
                 'detail': 'Room already exists.',
@@ -156,6 +169,19 @@ class CreateVideoRoomView(APIView):
         # Save the meeting URL to the session
         session.meeting_url = room['url']
         session.save(update_fields=['meeting_url'])
+
+        try:
+            from apps.notification.services import notify_session_scheduled
+            for user in [session.teacher, session.learner]:
+                partner = session.learner if user == session.teacher else session.teacher
+                notify_session_scheduled(
+                    user=user,
+                    partner_name=partner.username,
+                    session_id=session.id,
+                    scheduled_at=session.scheduled_at,
+                )
+        except ImportError:
+            pass
 
         return Response({
             'room_name': room['name'],

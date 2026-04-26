@@ -12,6 +12,10 @@ export const matchingService = {
     const { data } = await apiClient.get<Paginated<Match>>("/api/matches/");
     return data;
   },
+  async accepted() {
+    const { data } = await apiClient.get<Paginated<Match>>("/api/matches/accepted/");
+    return data;
+  },
   async semantic(threshold = 0.7, limit = 20) {
     const { data } = await apiClient.get<SemanticMatchResponse>("/api/matches/semantic/", {
       params: { threshold, limit },

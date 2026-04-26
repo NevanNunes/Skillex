@@ -5,6 +5,7 @@ from rest_framework import status
 from apps.users.models import User
 from apps.skills.models import SkillCategory, Skill, UserSkillTeach
 from apps.matching.models import Match
+from apps.notification.models import Notification
 from .models import ChatRoom, Message
 
 
@@ -22,7 +23,8 @@ class ChatTests(TestCase):
             teacher=self.teacher, learner=self.learner,
             teach_skill=ts, score=0.9, status='accepted',
         )
-        self.room = ChatRoom.objects.create(match=self.match)
+        first, second = sorted([self.teacher, self.learner], key=lambda u: str(u.id))
+        self.room = ChatRoom.objects.create(teacher=first, learner=second)
         self.msg = Message.objects.create(
             room=self.room, sender=self.teacher, content='Hello!'
         )
@@ -47,6 +49,17 @@ class ChatTests(TestCase):
         })
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Message.objects.count(), 2)
+
+    def test_send_message_creates_notification_for_recipient(self):
+        client = APIClient()
+        client.force_authenticate(user=self.learner)
+        client.post(f'/api/chat/rooms/{self.room.id}/send/', {'content': 'Ping!'}, format='json')
+        self.assertTrue(
+            Notification.objects.filter(
+                user=self.teacher,
+                notification_type='new_message',
+            ).exists()
+        )
 
     def test_mark_messages_read(self):
         client = APIClient()

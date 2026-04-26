@@ -11,6 +11,7 @@ class Notification(models.Model):
     """
     TYPE_CHOICES = [
         ('new_match', 'New Match'),
+        ('session_scheduled', 'Session Scheduled'),
         ('session_confirmed', 'Session Confirmed'),
         ('session_reminder', 'Session Reminder'),
         ('session_cancelled', 'Session Cancelled'),

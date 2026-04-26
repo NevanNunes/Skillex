@@ -16,6 +16,8 @@ class Match(models.Model):
     learner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='matches_as_learner')
     teach_skill = models.ForeignKey(UserSkillTeach, on_delete=models.CASCADE)
     score = models.FloatField(default=0.0)
+    teacher_accepted = models.BooleanField(default=False)
+    learner_accepted = models.BooleanField(default=False)
     status = models.CharField(max_length=20, choices=STATUS, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 

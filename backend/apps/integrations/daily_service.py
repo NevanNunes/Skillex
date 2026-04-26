@@ -36,10 +36,11 @@ def create_room(session_id, scheduled_at, duration_minutes):
         dict with 'name', 'url', 'id' or None on failure
     """
     if not settings.DAILY_API_KEY:
-        logger.warning('DAILY_API_KEY not set — generating placeholder meeting URL')
+        logger.warning('DAILY_API_KEY not set — using Talky fallback meeting URL')
+        room_name = f'skillex-{str(session_id)[:8]}'
         return {
-            'name': f'skillex-{str(session_id)[:8]}',
-            'url': f'https://skillex.daily.co/skillex-{str(session_id)[:8]}',
+            'name': room_name,
+            'url': f'https://talky.io/{room_name}',
             'id': str(session_id),
         }
 

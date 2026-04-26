@@ -23,13 +23,13 @@ export default function Notifications() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
   const markAll = useMutation({
-    mutationFn: notificationsService.markAll,
+    mutationFn: () => notificationsService.markAll(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
   return (
     <div>
-      <PageHeader title="Notifications" description="Stay on top of matches, sessions, and chats."
+      <PageHeader title="Notifications" description="Stay on top of match, session, and system updates."
         actions={<Button variant="outline" onClick={() => markAll.mutate()}><CheckCheck className="h-4 w-4 mr-1" />Mark all read</Button>} />
       <Tabs value={tab} onValueChange={(v) => setTab(v as "all" | "unread")}>
         <TabsList className="glass-subtle"><TabsTrigger value="all">All</TabsTrigger><TabsTrigger value="unread">Unread</TabsTrigger></TabsList>

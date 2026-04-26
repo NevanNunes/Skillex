@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { matchingService } from "@/services/matching";
+import { notificationsService } from "@/services/notifications";
+import { integrationsService } from "@/services/integrations";
 import { sessionsService } from "@/services/sessions";
 import { usersService } from "@/services/users";
 import { GlassCard } from "@/components/common/GlassCard";
@@ -37,7 +39,21 @@ export default function Matching() {
 
 function RuleMatches() {
   const qc = useQueryClient();
-  const { data, isLoading, refetch } = useQuery({ queryKey: ["matches"], queryFn: matchingService.list });
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["matches"],
+    queryFn: matchingService.list,
+    refetchInterval: 15000,
+  });
+  const { data: unreadNotifications } = useQuery({
+    queryKey: ["notifications", "unread-count", "matching"],
+    queryFn: notificationsService.unreadCount,
+    refetchInterval: 10000,
+  });
+
+  useEffect(() => {
+    refetch();
+  }, [unreadNotifications, refetch]);
+
   const refresh = useMutation({
     mutationFn: matchingService.refresh,
     onSuccess: () => { toast.success("Matches refreshed"); qc.invalidateQueries({ queryKey: ["matches"] }); refetch(); },
@@ -89,9 +105,17 @@ function MatchGrid({ matches, loading }: { matches: Match[]; loading: boolean })
 
 function MatchCard({ match }: { match: Match }) {
   const qc = useQueryClient();
+  const person = match.counterpart ?? match.teacher;
   const accept = useMutation({
     mutationFn: () => matchingService.accept(match.id),
-    onSuccess: () => { toast.success("Match accepted"); qc.invalidateQueries({ queryKey: ["matches"] }); },
+    onSuccess: (updated) => {
+      if (updated.status === "accepted") {
+        toast.success("You matched. Chat is now available.");
+      } else {
+        toast.success("Accepted. Waiting for the other person.");
+      }
+      qc.invalidateQueries({ queryKey: ["matches"] });
+    },
   });
   const reject = useMutation({
     mutationFn: () => matchingService.reject(match.id),
@@ -100,10 +124,10 @@ function MatchCard({ match }: { match: Match }) {
   return (
     <GlassCard className="space-y-4 hover:shadow-elevated transition-shadow">
       <div className="flex items-center gap-3">
-        <UserAvatar user={match.teacher} size="lg" />
+        <UserAvatar user={person} size="lg" />
         <div className="flex-1 min-w-0">
-          <p className="font-display font-semibold truncate">{match.teacher.username}</p>
-          <p className="text-xs text-muted-foreground truncate">{match.teacher.college}</p>
+          <p className="font-display font-semibold truncate">{person.username}</p>
+          <p className="text-xs text-muted-foreground truncate">{person.college}</p>
         </div>
         <ScoreRing value={match.score} size={52} />
       </div>
@@ -115,13 +139,15 @@ function MatchCard({ match }: { match: Match }) {
         <MentorPreviewSheet match={match}>
           <Button variant="outline" size="sm" className="flex-1">View profile</Button>
         </MentorPreviewSheet>
-        {match.status === "pending" ? (
+        {match.status === "pending" && !match.accepted_by_me ? (
           <>
             <Button size="sm" className="flex-1" onClick={() => accept.mutate()}><Check className="h-4 w-4 mr-1" />Accept</Button>
             <Button size="sm" variant="ghost" onClick={() => reject.mutate()} aria-label="Reject"><X className="h-4 w-4" /></Button>
           </>
+        ) : match.status === "pending" && match.waiting_for_other ? (
+          <Badge variant="secondary" className="flex-1 justify-center">Waiting for other user</Badge>
         ) : (
-          <Badge>{match.status}</Badge>
+          <Badge className="capitalize">{match.status}</Badge>
         )}
       </div>
     </GlassCard>
@@ -130,6 +156,7 @@ function MatchCard({ match }: { match: Match }) {
 
 function MentorPreviewSheet({ match, children }: { match: Match; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const person = match.counterpart ?? match.teacher;
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>{children}</SheetTrigger>
@@ -139,13 +166,13 @@ function MentorPreviewSheet({ match, children }: { match: Match; children: React
         </SheetHeader>
         <div className="space-y-4 mt-4">
           <div className="flex items-center gap-3">
-            <UserAvatar user={match.teacher} size="lg" />
+            <UserAvatar user={person} size="lg" />
             <div>
-              <p className="font-display font-semibold">{match.teacher.username}</p>
-              <p className="text-xs text-muted-foreground">{match.teacher.college}</p>
+              <p className="font-display font-semibold">{person.username}</p>
+              <p className="text-xs text-muted-foreground">{person.college}</p>
             </div>
           </div>
-          <p className="text-sm">{match.teacher.bio}</p>
+          <p className="text-sm">{person.bio}</p>
           <div className="flex flex-wrap gap-1.5">
             <Badge variant="secondary">{match.teach_skill.skill.name}</Badge>
           </div>
@@ -158,22 +185,29 @@ function MentorPreviewSheet({ match, children }: { match: Match; children: React
 
 function BookSessionForm({ match, onDone }: { match: Match; onDone: () => void }) {
   const qc = useQueryClient();
+  const counterpartId = match.counterpart?.id ?? match.teacher.id;
   const { data: overlap } = useQuery({
-    queryKey: ["overlap", match.teacher.id],
-    queryFn: () => usersService.overlap(match.teacher.id),
+    queryKey: ["overlap", counterpartId],
+    queryFn: () => usersService.overlap(counterpartId),
   });
   const windows = overlap?.windows ?? [];
   const [windowIdx, setWindowIdx] = useState("0");
   const [duration, setDuration] = useState("60");
 
   const book = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const w = windows[Number(windowIdx)];
       const scheduled_at = dayjs(`${w.date}T${w.start}`).toISOString();
-      return sessionsService.book({ match_id: match.id, scheduled_at, duration_minutes: Number(duration) });
+      const session = await sessionsService.book({ match_id: match.id, scheduled_at, duration_minutes: Number(duration) });
+      try {
+        const room = await integrationsService.dailyRoom(session.id);
+        return { session, room };
+      } catch {
+        return { session };
+      }
     },
-    onSuccess: () => {
-      toast.success("Session booked");
+    onSuccess: ({ room }) => {
+      toast.success(room?.meeting_url ? "Session booked and video room created" : "Session booked");
       qc.invalidateQueries({ queryKey: ["sessions"] });
       onDone();
     },

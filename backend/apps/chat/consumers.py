@@ -222,12 +222,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def _save_message(self, content):
         """Persist a message to the database."""
         from .models import Message, ChatRoom
+        from apps.notification.services import notify
+
         room = ChatRoom.objects.get(id=self.room_id)
-        return Message.objects.create(
+        message = Message.objects.create(
             room=room,
             sender=self.user,
             content=content,
         )
+
+        recipient = room.learner if room.teacher_id == self.user.id else room.teacher
+        notify(
+            user=recipient,
+            notification_type='new_message',
+            title=f'New message from {self.user.username}',
+            message=content[:180],
+            payload={'room_id': str(room.id), 'message_id': str(message.id)},
+        )
+
+        return message
 
     @database_sync_to_async
     def _mark_messages_read(self):
@@ -240,6 +253,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
 
 def models_Q_teacher_or_learner(user):
-    """Helper: Q filter for rooms where user is teacher or learner of the match."""
+    """Helper: Q filter for rooms where user is teacher or learner."""
     from django.db.models import Q
-    return Q(match__teacher=user) | Q(match__learner=user)
+    return Q(teacher=user) | Q(learner=user)
