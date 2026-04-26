@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ProtectedRoute, PublicOnlyRoute } from "@/components/auth/ProtectedRoute";
+import { ProtectedRoute, PublicOnlyRoute, AdminRoute } from "@/components/auth/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 
 import Landing from "./pages/Landing";
@@ -22,6 +22,7 @@ import PostDetail from "./pages/app/PostDetail";
 import Gamification from "./pages/app/Gamification";
 import Leaderboard from "./pages/app/Leaderboard";
 import Notifications from "./pages/app/Notifications";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -69,6 +70,7 @@ const App = () => (
             <Route path="gamification" element={<Gamification />} />
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="notifications" element={<Notifications />} />
+            <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           </Route>
 
           <Route path="*" element={<NotFound />} />

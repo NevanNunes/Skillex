@@ -92,7 +92,7 @@ class OverlapView(APIView):
         target_user = User.objects.prefetch_related('availability').get(pk=target_user.pk)
 
         # Get confirmed sessions involving either user
-        from apps.sessions.models import Session
+        from ..sessions.models import Session
         confirmed = Session.objects.filter(
             status='confirmed',
         ).filter(
@@ -120,3 +120,11 @@ class OverlapView(APIView):
             'overlap_count': len(windows),
             'windows': windows,
         })
+
+
+class AdminUserListView(generics.ListAPIView):
+    queryset = User.objects.all().order_by('-date_joined')
+    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAdminUser]
+    search_fields = ['username', 'email', 'first_name', 'last_name', 'college']
+    ordering_fields = ['username', 'email', 'date_joined', 'reputation_score', 'xp']

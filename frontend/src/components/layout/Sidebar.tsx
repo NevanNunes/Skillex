@@ -8,9 +8,12 @@ import {
   Users,
   Trophy,
   Bell,
+  Shield,
+  ExternalLink,
 } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth";
 
 export const navItems = [
   { to: "/app", end: true, label: "Dashboard", icon: LayoutDashboard },
@@ -21,9 +24,14 @@ export const navItems = [
   { to: "/app/community", label: "Community", icon: Users },
   { to: "/app/gamification", label: "XP & Badges", icon: Trophy },
   { to: "/app/notifications", label: "Notifications", icon: Bell },
+  { to: "/app/admin", label: "Admin Dashboard", icon: Shield, adminOnly: true },
+  { to: "http://localhost:8000/admin/", label: "Django Admin", icon: ExternalLink, adminOnly: true, external: true },
 ];
 
 export function Sidebar({ collapsed }: { collapsed?: boolean }) {
+  const { user } = useAuthStore();
+  const visibleItems = navItems.filter(item => !item.adminOnly || user?.role === 'admin');
+
   return (
     <aside
       className={cn(
@@ -36,20 +44,36 @@ export function Sidebar({ collapsed }: { collapsed?: boolean }) {
           {collapsed ? <Logo withText={false} /> : <Logo />}
         </div>
         <nav className="flex flex-col gap-1 mt-2">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={cn(
-                "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium",
-                "text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors",
-              )}
-              activeClassName="!text-primary bg-primary/10 hover:bg-primary/15"
-            >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </NavLink>
+          {visibleItems.map((item) => (
+            item.external ? (
+              <a
+                key={item.to}
+                href={item.to}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium",
+                  "text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                )}
+              >
+                <item.icon className="h-5 w-5 shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </a>
+            ) : (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={cn(
+                  "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium",
+                  "text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors",
+                )}
+                activeClassName="!text-primary bg-primary/10 hover:bg-primary/15"
+              >
+                <item.icon className="h-5 w-5 shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </NavLink>
+            )
           ))}
         </nav>
         <div className="mt-auto p-3 rounded-xl bg-gradient-primary/10 border border-primary/20">

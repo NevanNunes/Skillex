@@ -34,4 +34,10 @@ export const usersService = {
     });
     return data;
   },
+  async adminList(page = 1, search = "") {
+    const { data } = await apiClient.get<Paginated<User>>("/api/admin/users/", {
+      params: { page, search },
+    });
+    return data;
+  },
 };
