@@ -246,6 +246,20 @@ export async function handleMockRequest(req: Req): Promise<{ status: number; dat
     availability = (req.data as { slots: AvailabilitySlot[] }).slots ?? [];
     return { status: 200, data: availability };
   }
+  if (path === "/api/users/" && m === "GET") {
+    const q = (req.params?.search as string | undefined)?.toLowerCase().trim();
+    const pageSize = Number(req.params?.page_size ?? 8);
+    const list = [me, ...peers].filter((u) => {
+      if (u.id === me.id) return false;
+      if (!q) return true;
+      const haystack = [u.username, u.first_name, u.last_name, u.college, u.bio]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+    return { status: 200, data: paginate(list, 1, pageSize) };
+  }
   let mm = match(/^\/api\/users\/([^/]+)\/$/, path);
   if (mm && m === "GET") {
     const u = [me, ...peers].find((x) => x.username === mm![1]) ?? me;

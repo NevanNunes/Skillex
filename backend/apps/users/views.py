@@ -33,6 +33,17 @@ class PublicProfileView(generics.RetrieveAPIView):
     permission_classes = [permissions.AllowAny]
 
 
+class UserSearchView(generics.ListAPIView):
+    serializer_class = PublicProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    search_fields = ['username', 'first_name', 'last_name', 'college', 'branch', 'bio']
+    ordering_fields = ['username', 'college', 'date_joined']
+    ordering = ['username']
+
+    def get_queryset(self):
+        return User.objects.exclude(pk=self.request.user.pk)
+
+
 class AvailabilityView(APIView):
     """
     GET  /api/users/me/availability/  — list current user's availability slots.

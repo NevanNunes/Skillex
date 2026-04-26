@@ -13,6 +13,7 @@ import { ArrowBigUp, ArrowBigDown, Check } from "lucide-react";
 import dayjs from "dayjs";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth";
+import type { Comment, Paginated, Post } from "@/types/api";
 
 export default function PostDetail() {
   const { id } = useParams();
@@ -20,7 +21,12 @@ export default function PostDetail() {
   const me = useAuthStore((s) => s.user);
   const qc = useQueryClient();
   const post = useQuery({ queryKey: ["post", pid], queryFn: () => communityService.post(pid) });
-  const comments = useQuery({ queryKey: ["post", pid, "comments"], queryFn: () => communityService.comments(pid) });
+  const comments = useQuery({
+    queryKey: ["post", pid, "comments"],
+    queryFn: () => communityService.comments(pid),
+    refetchInterval: 3000,
+    refetchOnWindowFocus: true,
+  });
   const [draft, setDraft] = useState("");
 
   const votePost = useMutation({
@@ -29,7 +35,62 @@ export default function PostDetail() {
   });
   const addComment = useMutation({
     mutationFn: () => communityService.createComment(pid, { body: draft }),
-    onSuccess: () => { setDraft(""); qc.invalidateQueries({ queryKey: ["post", pid, "comments"] }); },
+    onMutate: async () => {
+      const content = draft.trim();
+      if (!content || !me) return;
+
+      await qc.cancelQueries({ queryKey: ["post", pid, "comments"] });
+      await qc.cancelQueries({ queryKey: ["post", pid] });
+
+      const optimisticComment: Comment = {
+        id: `optimistic-${Date.now()}`,
+        post: pid,
+        author: { id: me.id, username: me.username, avatar: me.avatar ?? null },
+        body: content,
+        parent_comment: null,
+        upvotes: 0,
+        downvotes: 0,
+        net_votes: 0,
+        replies: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      qc.setQueryData<Paginated<Comment>>(["post", pid, "comments"], (prev) => {
+        if (!prev) {
+          return { count: 1, next: null, previous: null, results: [optimisticComment] };
+        }
+        return {
+          ...prev,
+          count: prev.count + 1,
+          results: [optimisticComment, ...prev.results],
+        };
+      });
+
+      qc.setQueryData<Post>(["post", pid], (prev) => {
+        if (!prev) return prev;
+        return { ...prev, comment_count: prev.comment_count + 1 };
+      });
+    },
+    onSuccess: (newComment) => {
+      setDraft("");
+
+      qc.setQueryData<Paginated<Comment>>(["post", pid, "comments"], (prev) => {
+        if (!prev) return { count: 1, next: null, previous: null, results: [newComment] };
+
+        const withoutOptimistic = prev.results.filter((comment) => !comment.id.startsWith("optimistic-"));
+        return {
+          ...prev,
+          count: withoutOptimistic.length + 1,
+          results: [newComment, ...withoutOptimistic],
+        };
+      });
+    },
+    onSettled: () => {
+      // Background sync to ensure consistency with backend ordering/rules.
+      qc.invalidateQueries({ queryKey: ["post", pid, "comments"] });
+      qc.invalidateQueries({ queryKey: ["post", pid] });
+    },
   });
   const voteComment = useMutation({
     mutationFn: ({ cid, vt }: { cid: string; vt: "upvote" | "downvote" }) => communityService.voteComment(pid, cid, vt),
