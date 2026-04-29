@@ -1,0 +1,212 @@
+from pathlib import Path
+import os
+import dj_database_url
+from datetime import timedelta
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+SECRET_KEY = os.environ.get('SECRET_KEY', 'fallback-only-for-local')
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '.onrender.com',       # allows all Render subdomains
+]
+
+INSTALLED_APPS = [
+    'daphne',
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'channels',
+    'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',
+    'django_filters',
+    'corsheaders',
+    'apps.users',
+    'apps.skills',
+    'apps.matching',
+    'apps.sessions',
+    'apps.reviews',
+    'apps.notification',
+    'apps.chat',
+    'apps.community',
+    'apps.gamification',
+    'apps.integrations',
+    'cloudinary',
+    'cloudinary_storage',
+]
+
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+]
+
+ROOT_URLCONF = 'config.urls'
+AUTH_USER_MODEL = 'users.User'
+
+# ──────────────────────────────────────────
+# ASGI / Django Channels
+# ──────────────────────────────────────────
+ASGI_APPLICATION = 'config.asgi.application'
+
+# Channel layer — use Redis in production, in-memory for dev
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [(os.environ.get('REDIS_HOST', '127.0.0.1'), 6379)],
+        },
+    } if os.environ.get('REDIS_HOST') else {
+        # Fallback: in-memory channel layer (single process only)
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = 'config.wsgi.application'
+
+DATABASES = {
+    'default': dj_database_url.config(
+        default='sqlite:///db.sqlite3',
+        conn_max_age=600,
+        ssl_require=not DEBUG,   # SSL on Render Postgres, not locally
+    )
+}
+# Redis / Channels
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [os.environ.get('REDIS_URL', 'redis://localhost:6379')],
+        },
+    },
+}
+
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
+
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_TZ = True
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CORS_ALLOWED_ORIGINS = [ # Change
+    "https://insight-guild-net.lovable.app",
+    "https://saint-perfume-bulldozer.ngrok-free.dev",
+    'http://localhost:5173',
+]
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'common.pagination.StandardPagination',
+    'PAGE_SIZE': 20,
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+}
+
+# ──────────────────────────────────────────
+# Daily.co WebRTC Integration
+# ──────────────────────────────────────────
+DAILY_API_KEY = os.environ.get('DAILY_API_KEY', '')
+DAILY_API_URL = 'https://api.daily.co/v1'
+
+# ──────────────────────────────────────────
+# Google Calendar Integration
+# ──────────────────────────────────────────
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', 'http://localhost:8000/api/integrations/google/callback/')
+
+# ──────────────────────────────────────────
+# AI / Semantic Search (Qdrant)
+# ──────────────────────────────────────────
+QDRANT_HOST = os.environ.get('QDRANT_HOST', 'localhost')
+QDRANT_PORT = int(os.environ.get('QDRANT_PORT', 6333))
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+EMBEDDING_MODEL = 'text-embedding-3-small'
+EMBEDDING_DIMENSION = 1536
+
+# ──────────────────────────────────────────
+# File Storage (Cloudinary)
+# ──────────────────────────────────────────
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': 'hhuaykn30', # extracted from API key
+    'API_KEY': 'RRdP7R_XhuAYKN30C2qEmMeWLJc',
+    'API_SECRET': '', # We will need to construct it or assume it's part of the provided string
+}
+# Fallback to URL if provided in env
+import os
+if os.environ.get('CLOUDINARY_URL'):
+    CLOUDINARY_STORAGE = {}
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+# ──────────────────────────────────────────
+# AI Generation (Gemini)
+# ──────────────────────────────────────────
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyDPVbBUs-R9Kgyg43STm1sV67QUDQdrm9Y')
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "ngrok-skip-browser-warning",  # this is the missing one
+]
