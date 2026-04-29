@@ -127,4 +127,32 @@ class AdminUserListView(generics.ListAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAdminUser]
     search_fields = ['username', 'email', 'first_name', 'last_name', 'college']
-    ordering_fields = ['username', 'email', 'date_joined', 'reputation_score', 'xp']
+    ordering_fields = ['username', 'email', 'date_joined', 'reputation_score', 'xp']
+
+
+class AdminUserActionView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def patch(self, request, user_id):
+        target_user = get_object_or_404(User, pk=user_id)
+        action = request.data.get('action')
+
+        if target_user.is_superuser and request.user != target_user:
+            return Response({'detail': 'Cannot modify superuser.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if action == 'toggle_admin':
+            if target_user.role == 'admin':
+                target_user.role = 'learner'
+                target_user.is_staff = False
+            else:
+                target_user.role = 'admin'
+                target_user.is_staff = True
+            target_user.save()
+            return Response({'status': 'role_updated', 'role': target_user.role})
+
+        elif action == 'toggle_active':
+            target_user.is_verified = not target_user.is_verified
+            target_user.save()
+            return Response({'status': 'active_updated', 'is_verified': target_user.is_verified})
+
+        return Response({'detail': 'Invalid action.'}, status=status.HTTP_400_BAD_REQUEST)

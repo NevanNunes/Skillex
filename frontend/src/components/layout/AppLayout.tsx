@@ -25,6 +25,18 @@ export function AppLayout() {
     if (!tokens?.access) navigate("/login", { replace: true });
   }, [tokens?.access, navigate]);
 
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      document.body.classList.add('admin-theme');
+    } else {
+      document.body.classList.remove('admin-theme');
+    }
+
+    return () => {
+      document.body.classList.remove('admin-theme');
+    };
+  }, [user?.role]);
+
   return (
     <div className="flex min-h-screen w-full">
       <Sidebar />

@@ -96,6 +96,11 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
           <div className="lg:hidden">
             <Logo withText={false} />
           </div>
+          {user?.role === 'admin' && (
+             <div className="hidden lg:flex items-center ml-2 mr-2 px-2.5 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider border border-primary/30">
+               Admin Mode
+             </div>
+          )}
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
@@ -153,9 +158,11 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            <Button variant="default" size="sm" className="hidden sm:inline-flex" onClick={() => navigate("/app/matching")}>
-              Find a match
-            </Button>
+            {user?.role !== 'admin' && (
+              <Button variant="default" size="sm" className="hidden sm:inline-flex" onClick={() => navigate("/app/matching")}>
+                Find a match
+              </Button>
+            )}
           </div>
         </div>
       </header>

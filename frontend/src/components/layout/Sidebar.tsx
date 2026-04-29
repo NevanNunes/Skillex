@@ -30,7 +30,12 @@ export const navItems = [
 
 export function Sidebar({ collapsed }: { collapsed?: boolean }) {
   const { user } = useAuthStore();
-  const visibleItems = navItems.filter(item => !item.adminOnly || user?.role === 'admin');
+  const visibleItems = navItems.filter(item => {
+    if (user?.role === 'admin') {
+      return item.adminOnly || item.label === 'Profile';
+    }
+    return !item.adminOnly;
+  });
 
   return (
     <aside
