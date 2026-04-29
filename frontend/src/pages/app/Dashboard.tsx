@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { sessionsService } from "@/services/sessions";
 import { matchingService } from "@/services/matching";
@@ -17,6 +17,10 @@ import dayjs from "dayjs";
 
 export default function Dashboard() {
   const user = useAuthStore((s) => s.user);
+
+  if (user?.role === "admin") {
+    return <Navigate to="/app/admin" replace />;
+  }
   const sessions = useQuery({ queryKey: ["sessions"], queryFn: () => sessionsService.list() });
   const matches = useQuery({ queryKey: ["matches"], queryFn: matchingService.list });
   const game = useQuery({ queryKey: ["gamification", "me"], queryFn: gamificationService.me });

@@ -40,4 +40,8 @@ export const usersService = {
     });
     return data;
   },
+  async adminAction(userId: string, action: "toggle_admin" | "toggle_active") {
+    const { data } = await apiClient.patch(`/api/admin/users/${userId}/action/`, { action });
+    return data;
+  },
 };

@@ -131,6 +131,47 @@
     --sidebar-border: 215 30% 18%;
     --sidebar-ring: 184 80% 55%;
   }
+
+  .admin-theme {
+    --primary: 260 78% 45%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 260 90% 65%;
+
+    --secondary: 320 85% 55%;
+    --secondary-foreground: 0 0% 100%;
+
+    --accent: 350 80% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --ring: 260 78% 45%;
+
+    --gradient-app:
+      radial-gradient(1200px 800px at 10% -10%, hsl(260 90% 70% / 0.35), transparent 60%),
+      radial-gradient(900px 700px at 100% 0%, hsl(320 85% 70% / 0.30), transparent 55%),
+      radial-gradient(900px 800px at 50% 110%, hsl(350 80% 70% / 0.28), transparent 55%),
+      linear-gradient(180deg, hsl(260 60% 98%), hsl(260 40% 95%));
+
+    --sidebar-primary: 260 78% 45%;
+    --sidebar-ring: 260 78% 45%;
+  }
+
+  .dark.admin-theme {
+    --primary: 260 80% 60%;
+    --primary-glow: 260 95% 75%;
+    --secondary: 320 95% 62%;
+    --accent: 350 78% 65%;
+
+    --ring: 260 80% 60%;
+
+    --gradient-app:
+      radial-gradient(1200px 800px at 10% -10%, hsl(260 90% 30% / 0.45), transparent 60%),
+      radial-gradient(900px 700px at 100% 0%, hsl(320 95% 30% / 0.40), transparent 55%),
+      radial-gradient(900px 800px at 50% 110%, hsl(350 80% 30% / 0.35), transparent 55%),
+      linear-gradient(180deg, hsl(260 45% 7%), hsl(260 50% 5%));
+
+    --sidebar-primary: 260 80% 60%;
+    --sidebar-ring: 260 80% 60%;
+  }
 }
 
 @layer base {
